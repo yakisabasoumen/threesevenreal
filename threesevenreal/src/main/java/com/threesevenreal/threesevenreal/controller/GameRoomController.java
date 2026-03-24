@@ -26,10 +26,15 @@ public class GameRoomController {
     }
 
     @PostMapping("/join/{roomId}")
-    public ResponseEntity<GameRoomDTO> joinRoom(
+    public ResponseEntity<?> joinRoom(
             @PathVariable String roomId,
             @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(gameRoomService.joinRoom(roomId, user.getId()));
+        try {
+            return ResponseEntity.ok(gameRoomService.joinRoom(roomId, user.getId()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(java.util.Map.of("message", e.getMessage()));
+        }
     }
 
     @GetMapping("/available/{gameType}")

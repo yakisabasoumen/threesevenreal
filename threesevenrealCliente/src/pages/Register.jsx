@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
+import AuthFormCard from '../components/ui/AuthFormCard';
+import AuthInput from '../components/ui/AuthInput';
+import PrimaryButton from '../components/ui/PrimaryButton';
+import { t } from '../styles/theme';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -19,50 +23,37 @@ export default function Register() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>ThreeSevenReal</h1>
-        <h2 style={styles.subtitle}>Crear cuenta</h2>
-        {error && <p style={styles.error}>{error}</p>}
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <input
-            style={styles.input}
-            placeholder="Usuario (3-20 caracteres)"
-            value={form.username}
-            onChange={e => setForm({ ...form, username: e.target.value })}
-          />
-          <input
-            style={styles.input}
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={e => setForm({ ...form, email: e.target.value })}
-          />
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="Contraseña (mínimo 6 caracteres)"
-            value={form.password}
-            onChange={e => setForm({ ...form, password: e.target.value })}
-          />
-          <button style={styles.button} type="submit">Registrarse</button>
-        </form>
-        <p style={styles.link}>
-          ¿Ya tienes cuenta? <Link to="/login">Inicia sesión</Link>
-        </p>
-      </div>
-    </div>
+    <AuthFormCard
+      title="Crear cuenta"
+      error={error}
+      footer={<>¿Ya tienes cuenta? <Link to="/login" style={{ color: t.gold }}>Inicia sesión</Link></>}
+    >
+      <form onSubmit={handleSubmit} style={s.form}>
+        <AuthInput
+          placeholder="Usuario (3-20 caracteres)"
+          value={form.username}
+          onChange={e => setForm({ ...form, username: e.target.value })}
+        />
+        <AuthInput
+          type="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={e => setForm({ ...form, email: e.target.value })}
+        />
+        <AuthInput
+          type="password"
+          placeholder="Contraseña (mínimo 6 caracteres)"
+          value={form.password}
+          onChange={e => setForm({ ...form, password: e.target.value })}
+        />
+        <PrimaryButton type="submit" fullWidth style={{ marginTop: '0.5rem' }}>
+          Crear cuenta
+        </PrimaryButton>
+      </form>
+    </AuthFormCard>
   );
 }
 
-const styles = {
-  container: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1a2e' },
-  card: { background: '#16213e', padding: '2rem', borderRadius: '12px', width: '360px', textAlign: 'center' },
-  title: { color: '#4fc3f7', marginBottom: '0.25rem' },
-  subtitle: { color: '#aaa', fontWeight: 'normal', marginBottom: '1.5rem' },
-  form: { display: 'flex', flexDirection: 'column', gap: '1rem' },
-  input: { padding: '0.75rem', borderRadius: '8px', border: '1px solid #333', background: '#0f3460', color: '#fff', fontSize: '1rem' },
-  button: { padding: '0.75rem', borderRadius: '8px', border: 'none', background: '#4fc3f7', color: '#000', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' },
-  error: { color: '#e74c3c', marginBottom: '1rem' },
-  link: { color: '#aaa', marginTop: '1rem' }
+const s = {
+  form: { display: 'flex', flexDirection: 'column', gap: '0.75rem', fontFamily: t.fontBody },
 };
