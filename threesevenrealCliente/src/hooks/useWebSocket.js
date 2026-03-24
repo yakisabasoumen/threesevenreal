@@ -2,22 +2,47 @@ import { useEffect, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-export function useWebSocket(roomId, onMessage) {
+export function useWebSocket(roomId, onMessage, playerId) {
   const clientRef = useRef(null);
   const [connected, setConnected] = useState(false);
+  const onMessageRef = useRef(onMessage);
 
   useEffect(() => {
-    if (!roomId) return;
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
+
+  useEffect(() => {
+    if (!roomId || !playerId) return;
 
     const client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+
       onConnect: () => {
         setConnected(true);
+
+        // 1. Topic general — JOIN, CHAT, ACTION_NOTICE, errores
         client.subscribe(`/topic/room/${roomId}`, (msg) => {
-          const body = JSON.parse(msg.body);
-          onMessage(body);
+          onMessageRef.current(JSON.parse(msg.body));
+        });
+
+        // 2. Topic personal — STATE_UPDATE con tu mano específica
+        client.subscribe(`/topic/room/${roomId}/${playerId}`, (msg) => {
+          onMessageRef.current(JSON.parse(msg.body));
+        });
+
+        // 3. Registrar sesión en el servidor para detectar desconexión
+        //    FIX #1: el backend ahora reenvía el estado si la partida ya empezó
+        client.publish({
+          destination: `/app/game/${roomId}/connect`,
+          body: JSON.stringify({
+            type: 'CONNECT',
+            roomId,
+            playerId,
+            timestamp: Date.now(),
+          }),
         });
       },
+
       onDisconnect: () => setConnected(false),
       reconnectDelay: 3000,
     });
@@ -26,13 +51,13 @@ export function useWebSocket(roomId, onMessage) {
     clientRef.current = client;
 
     return () => client.deactivate();
-  }, [roomId]);
+  }, [roomId, playerId]);
 
-  const sendAction = (action, playerId) => {
+  const sendAction = (action, pid) => {
     if (!clientRef.current?.connected) return;
     clientRef.current.publish({
       destination: `/app/game/${roomId}/action`,
-      body: JSON.stringify({ type: 'ACTION', roomId, playerId, action, timestamp: Date.now() }),
+      body: JSON.stringify({ type: 'ACTION', roomId, playerId: pid, action, timestamp: Date.now() }),
     });
   };
 

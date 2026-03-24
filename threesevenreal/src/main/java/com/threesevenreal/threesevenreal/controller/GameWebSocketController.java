@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
@@ -15,6 +16,25 @@ public class GameWebSocketController {
 
     private final GameRoomService gameRoomService;
     private final SimpMessagingTemplate messagingTemplate;
+
+    // Registra playerId en la sesión WebSocket para detectar desconexiones.
+    // FIX #1: también reenvía el estado de la partida si ya estaba en curso,
+    // solucionando la race condition donde el 2º jugador se unía por HTTP
+    // antes de que su WebSocket estuviera suscrito al topic personal.
+    @MessageMapping("/game/{roomId}/connect")
+    public void handleConnect(
+            @DestinationVariable String roomId,
+            @Payload GameMessage message,
+            SimpMessageHeaderAccessor headerAccessor) {
+
+        headerAccessor.getSessionAttributes().put("playerId", message.getPlayerId());
+        headerAccessor.getSessionAttributes().put("roomId", roomId);
+
+        // FIX #1: reenviar estado personalizado si la partida ya empezó
+        // Esto garantiza que el 2º jugador siempre recibe sus cartas
+        // aunque el GAME_START llegara antes de que su WS estuviera listo
+        gameRoomService.resendStateIfPlaying(roomId, message.getPlayerId());
+    }
 
     @MessageMapping("/game/{roomId}/action")
     public void handleAction(

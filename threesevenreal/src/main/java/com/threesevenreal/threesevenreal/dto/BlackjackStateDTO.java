@@ -15,6 +15,7 @@ public class BlackjackStateDTO {
     private List<Card> dealerHand;
     private int playerScore;
     private int dealerScore;
-    private String status;
+    private String status;       
     private String message;
+    private String currentTurnUsername; 
 }

@@ -1,21 +1,14 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
-
-function CardDisplay({ card }) {
-  const suits = { HEARTS: '♥', DIAMONDS: '♦', CLUBS: '♣', SPADES: '♠' };
-  const redSuits = ['HEARTS', 'DIAMONDS'];
-  const isRed = redSuits.includes(card.suit);
-  return (
-    <div style={{ ...styles.card, color: isRed ? '#e74c3c' : '#fff' }}>
-      <div style={styles.cardRank}>{card.rank}</div>
-      <div style={styles.cardSuit}>{suits[card.suit] || card.suit}</div>
-    </div>
-  );
-}
+import GameHeader from '../components/layout/GameHeader';
+import CardHand from '../components/game/CardHand';
+import { CardBack } from '../components/game/PlayingCard';
+import StatusBanner from '../components/game/StatusBanner';
+import GameStartScreen from '../components/game/GameStartScreen';
+import PrimaryButton from '../components/ui/PrimaryButton';
+import { t } from '../styles/theme';
 
 export default function Blackjack() {
-  const navigate = useNavigate();
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -24,11 +17,8 @@ export default function Blackjack() {
     setLoading(true);
     try {
       const res = await api.post('/blackjack/start');
-      setGame(res.data);
-      setMessage(res.data.message);
-    } catch (e) {
-      setMessage('Error al iniciar la partida');
-    }
+      setGame(res.data); setMessage(res.data.message);
+    } catch { setMessage('Error al iniciar la partida'); }
     setLoading(false);
   };
 
@@ -36,11 +26,8 @@ export default function Blackjack() {
     setLoading(true);
     try {
       const res = await api.post(`/blackjack/${game.gameId}/hit`);
-      setGame(res.data);
-      setMessage(res.data.message);
-    } catch (e) {
-      setMessage('Error');
-    }
+      setGame(res.data); setMessage(res.data.message);
+    } catch { setMessage('Error'); }
     setLoading(false);
   };
 
@@ -48,114 +35,69 @@ export default function Blackjack() {
     setLoading(true);
     try {
       const res = await api.post(`/blackjack/${game.gameId}/stand`);
-      setGame(res.data);
-      setMessage(res.data.message);
-    } catch (e) {
-      setMessage('Error');
-    }
+      setGame(res.data); setMessage(res.data.message);
+    } catch { setMessage('Error'); }
     setLoading(false);
   };
 
   const isPlaying = game?.status === 'PLAYING';
-  const statusColor = {
-    PLAYER_WIN: '#2ecc71',
-    DEALER_WIN: '#e74c3c',
-    PUSH: '#f39c12',
-    PLAYING: '#4fc3f7',
-  };
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <button style={styles.btnBack} onClick={() => navigate('/lobby')}>← Volver</button>
-        <h1 style={styles.title}>🃏 Blackjack</h1>
-        <div />
-      </header>
-
-      <main style={styles.main}>
+    <div style={s.container}>
+      <GameHeader title="♣ Blackjack" />
+      <main style={s.main}>
         {!game ? (
-          <div style={styles.startBox}>
-            <p style={styles.ruleText}>Llega a 21 sin pasarte. El dealer pide cartas hasta 17.</p>
-            <button style={styles.btnPrimary} onClick={startGame} disabled={loading}>
-              {loading ? 'Repartiendo...' : 'Nueva partida'}
-            </button>
-          </div>
+          <GameStartScreen
+            suit="♣"
+            title="Blackjack"
+            ruleText="Llega a 21 sin pasarte. El dealer pide cartas hasta 17."
+            loading={loading}
+            onStart={startGame}
+          />
         ) : (
-          <>
-            {/* Estado */}
-            {game.status !== 'PLAYING' && (
-              <div style={{ ...styles.statusBanner, background: statusColor[game.status] }}>
-                {game.status === 'PLAYER_WIN' && '🎉 ¡Ganaste!'}
-                {game.status === 'DEALER_WIN' && '💀 Gana el dealer'}
-                {game.status === 'PUSH' && '🤝 Empate'}
-              </div>
-            )}
+          <div style={s.gameLayout}>
+            <StatusBanner status={game.status} />
 
-            {/* Mano del dealer */}
-            <section style={styles.section}>
-              <h2 style={styles.sectionTitle}>
-                Dealer {game.status !== 'PLAYING' ? `— ${game.dealerScore} pts` : ''}
-              </h2>
-              <div style={styles.cards}>
-                {game.dealerHand.map((card, i) => <CardDisplay key={i} card={card} />)}
-                {isPlaying && <div style={styles.cardBack}>🂠</div>}
-              </div>
-            </section>
+            <CardHand
+              title={`Dealer${game.status !== 'PLAYING' ? ` — ${game.dealerScore} pts` : ''}`}
+              cards={game.dealerHand}
+              footer={null}
+            >
+              {isPlaying && <CardBack />}
+            </CardHand>
 
-            {/* Mano del jugador */}
-            <section style={styles.section}>
-              <h2 style={styles.sectionTitle}>Tu mano — {game.playerScore} pts</h2>
-              <div style={styles.cards}>
-                {game.playerHand.map((card, i) => <CardDisplay key={i} card={card} />)}
-              </div>
-            </section>
+            <CardHand
+              title={`Tu mano — ${game.playerScore} pts`}
+              cards={game.playerHand}
+            />
 
-            {/* Mensaje */}
-            <p style={styles.message}>{message}</p>
+            {message && <p style={s.message}>{message}</p>}
 
-            {/* Botones */}
-            <div style={styles.actions}>
+            <div style={s.actions}>
               {isPlaying ? (
                 <>
-                  <button style={styles.btnHit} onClick={hit} disabled={loading}>
-                    {loading ? '...' : '👊 Hit'}
-                  </button>
-                  <button style={styles.btnStand} onClick={stand} disabled={loading}>
-                    {loading ? '...' : '✋ Stand'}
-                  </button>
+                  <button style={s.btnHit}   onClick={hit}   disabled={loading}>{loading ? '...' : '👊 Hit'}</button>
+                  <button style={s.btnStand} onClick={stand} disabled={loading}>{loading ? '...' : '✋ Stand'}</button>
                 </>
               ) : (
-                <button style={styles.btnPrimary} onClick={startGame} disabled={loading}>
-                  {loading ? '...' : '🔄 Nueva partida'}
-                </button>
+                <PrimaryButton onClick={startGame} disabled={loading}>
+                  {loading ? '...' : '↺ Nueva partida'}
+                </PrimaryButton>
               )}
             </div>
-          </>
+          </div>
         )}
       </main>
     </div>
   );
 }
 
-const styles = {
-  container: { minHeight: '100vh', background: '#1a1a2e', color: '#fff' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', background: '#16213e', borderBottom: '1px solid #0f3460' },
-  btnBack: { padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #4fc3f7', background: 'transparent', color: '#4fc3f7', cursor: 'pointer' },
-  title: { color: '#4fc3f7' },
-  main: { maxWidth: '700px', margin: '2rem auto', padding: '0 1rem' },
-  startBox: { textAlign: 'center', marginTop: '4rem' },
-  ruleText: { color: '#aaa', marginBottom: '2rem', fontSize: '1.1rem' },
-  statusBanner: { textAlign: 'center', padding: '1rem', borderRadius: '8px', fontSize: '1.4rem', fontWeight: 'bold', marginBottom: '1.5rem', color: '#000' },
-  section: { marginBottom: '1.5rem' },
-  sectionTitle: { color: '#4fc3f7', marginBottom: '0.75rem' },
-  cards: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' },
-  card: { background: '#16213e', border: '2px solid #0f3460', borderRadius: '8px', width: '70px', height: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' },
-  cardRank: { fontSize: '1.2rem' },
-  cardSuit: { fontSize: '1.5rem' },
-  cardBack: { background: '#0f3460', border: '2px solid #4fc3f7', borderRadius: '8px', width: '70px', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem' },
-  message: { color: '#aaa', textAlign: 'center', marginBottom: '1.5rem', fontStyle: 'italic' },
-  actions: { display: 'flex', justifyContent: 'center', gap: '1rem' },
-  btnPrimary: { padding: '0.75rem 2rem', borderRadius: '8px', border: 'none', background: '#4fc3f7', color: '#000', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' },
-  btnHit: { padding: '0.75rem 2rem', borderRadius: '8px', border: 'none', background: '#2ecc71', color: '#000', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' },
-  btnStand: { padding: '0.75rem 2rem', borderRadius: '8px', border: 'none', background: '#e74c3c', color: '#fff', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' },
+const s = {
+  container: { minHeight: '100vh', background: t.bg0, color: t.textPrimary },
+  main: { maxWidth: '720px', margin: '0 auto', padding: '2rem 1.5rem' },
+  gameLayout: { display: 'flex', flexDirection: 'column', gap: '1.25rem' },
+  message: { color: t.textSecondary, textAlign: 'center', fontStyle: 'italic', fontSize: '0.9rem', margin: 0 },
+  actions: { display: 'flex', justifyContent: 'center', gap: '1rem', paddingTop: '0.5rem' },
+  btnHit:   { padding: '0.85rem 2rem', borderRadius: '8px', border: '1px solid rgba(74,222,128,0.4)',  background: 'rgba(74,222,128,0.1)',  color: t.win,  fontSize: '0.95rem', fontWeight: '700', cursor: 'pointer', fontFamily: t.fontBody },
+  btnStand: { padding: '0.85rem 2rem', borderRadius: '8px', border: '1px solid rgba(248,113,113,0.4)', background: 'rgba(248,113,113,0.1)', color: t.loss, fontSize: '0.95rem', fontWeight: '700', cursor: 'pointer', fontFamily: t.fontBody },
 };
