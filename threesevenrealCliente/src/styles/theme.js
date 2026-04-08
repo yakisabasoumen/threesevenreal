@@ -28,8 +28,8 @@ export const t = {
   borderHover: 'rgba(201,168,76,0.5)',
 
   // Tipografía
-  fontDisplay: "'Playfair Display', Georgia, serif",
-  fontBody:    "'DM Sans', system-ui, sans-serif",
+  fontDisplay: "'Playfair Display', Georgia, serif, 'Poppins'",
+  fontBody:    "'DM Sans', system-ui, sans-serif, 'Poppins'",
 
   // Sombras
   shadowCard: '0 8px 32px rgba(0,0,0,0.6), 0 1px 0 rgba(201,168,76,0.1) inset',

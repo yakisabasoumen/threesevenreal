@@ -5,6 +5,7 @@ import SockJS from 'sockjs-client';
 export function useWebSocket(roomId, onMessage, playerId) {
   const clientRef = useRef(null);
   const [connected, setConnected] = useState(false);
+  const [playerStreak, setPlayerStreak] = useState({ winStreak: 0, maxWinStreak: 0 });
   const onMessageRef = useRef(onMessage);
 
   useEffect(() => {
@@ -22,7 +23,11 @@ export function useWebSocket(roomId, onMessage, playerId) {
 
         // 1. Topic general — JOIN, CHAT, ACTION_NOTICE, errores
         client.subscribe(`/topic/room/${roomId}`, (msg) => {
-          onMessageRef.current(JSON.parse(msg.body));
+          const message = JSON.parse(msg.body);
+          if (message.type === 'JOIN' && message.winStreak != null) {
+            setPlayerStreak({ winStreak: message.winStreak, maxWinStreak: message.maxWinStreak });
+          }
+          onMessageRef.current(message);
         });
 
         // 2. Topic personal — STATE_UPDATE con tu mano específica
@@ -69,5 +74,5 @@ export function useWebSocket(roomId, onMessage, playerId) {
     });
   };
 
-  return { connected, sendAction, sendChat };
+  return { connected, sendAction, sendChat, playerStreak };
 }

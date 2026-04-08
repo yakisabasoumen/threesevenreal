@@ -11,7 +11,8 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 403) {
+    // En caso de que se cierre sesión es porque ya expiró el token!! (Cualquier otro error lo controlamos)
+    if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
