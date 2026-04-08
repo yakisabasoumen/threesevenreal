@@ -27,4 +27,7 @@ public class GameMessage {
 
     private String message;
     private long timestamp;
+
+    private Integer winStreak;
+    private Integer maxWinStreak;
 }

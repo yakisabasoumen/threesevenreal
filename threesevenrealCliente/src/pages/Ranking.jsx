@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import api from '../api/axios';
 import GameHeader from '../components/layout/GameHeader';
 import { t } from '../styles/theme';
@@ -25,6 +25,7 @@ export default function Ranking() {
           <span style={s.colStat}>Partidas</span>
           <span style={s.colStat}>Win rate</span>
           <span style={s.colWins}>Victorias</span>
+          <span style={s.colStat}>Racha</span>
         </div>
 
         {loading ? (
@@ -52,6 +53,7 @@ export default function Ranking() {
                   <span style={{ ...s.colStat, color: t.textSecondary }}>{player.gamesPlayed}</span>
                   <span style={{ ...s.colStat, color: t.textSecondary }}>{player.winRate?.toFixed(1)}%</span>
                   <span style={{ ...s.colWins, color: t.win, fontFamily: t.fontDisplay, fontWeight: 700 }}>{player.wins}</span>
+                  <span style={{ ...s.colStat, color: t.gold, fontFamily: t.fontDisplay, fontWeight: 700 }}>{player.winStreak}</span>
                 </div>
               );
             })}
@@ -65,13 +67,13 @@ export default function Ranking() {
 const s = {
   container: { minHeight: '100vh', background: t.bg0, color: t.textPrimary },
   main: { maxWidth: '760px', margin: '0 auto', padding: '2rem 1.5rem' },
-  tableHeader: { display: 'grid', gridTemplateColumns: '48px 1fr 80px 80px 80px', gap: '1rem', padding: '0.5rem 1.5rem', color: t.textMuted, fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: t.fontBody, marginBottom: '0.5rem' },
+  tableHeader: { display: 'grid', gridTemplateColumns: '48px 1fr 80px 80px 80px 80px', gap: '1rem', padding: '0.5rem 1.5rem', color: t.textMuted, fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: t.fontBody, marginBottom: '0.5rem' },
   colPos: { textAlign: 'center' },
   colPlayer: { display: 'flex', alignItems: 'center', gap: '0.5rem' },
   colStat: { textAlign: 'center', fontSize: '0.9rem' },
   colWins: { textAlign: 'center', fontSize: '0.9rem' },
   list: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  row: { display: 'grid', gridTemplateColumns: '48px 1fr 80px 80px 80px', gap: '1rem', alignItems: 'center', padding: '1rem 1.5rem', borderRadius: '10px', transition: 'transform 0.15s' },
+  row: { display: 'grid', gridTemplateColumns: '48px 1fr 80px 80px 80px 80px', gap: '1rem', alignItems: 'center', padding: '1rem 1.5rem', borderRadius: '10px', transition: 'transform 0.15s' },
   playerName: { fontWeight: 500, fontSize: '0.95rem', color: t.textPrimary },
   youBadge: { background: t.goldGlow, border: `1px solid ${t.border}`, color: t.gold, borderRadius: '4px', padding: '0 6px', fontSize: '0.68rem', letterSpacing: '0.08em', textTransform: 'uppercase' },
   empty: { textAlign: 'center', color: t.textSecondary, marginTop: '3rem' },

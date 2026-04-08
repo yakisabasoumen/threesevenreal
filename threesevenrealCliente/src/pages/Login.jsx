@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import api from '../api/axios';
 import AuthFormCard from '../components/ui/AuthFormCard';
 import AuthInput from '../components/ui/AuthInput';
@@ -18,7 +18,7 @@ export default function Login() {
     setError('');
     try {
       const res = await api.post('/auth/login', form);
-      login({ token: res.data.token, username: res.data.username, playerId: res.data.playerId });
+      login({ token: res.data.token, username: res.data.username, playerId: res.data.playerId, avatarSymbol: res.data.avatarSymbol});
       navigate('/lobby');
     } catch {
       setError('Usuario o contraseña incorrectos');

@@ -35,8 +35,8 @@ public class ThreeSevenService {
         }
 
         // Evaluar manos
-        HandResult playerResult = evaluateHand(game.getPlayerHand());
-        HandResult botResult = evaluateHand(game.getBotHand());
+        HandResult playerResult = evaluateHandPublic(game.getPlayerHand());
+        HandResult botResult = evaluateHandPublic(game.getBotHand());
 
         game.setPlayerHandRank(playerResult.rank());
         game.setBotHandRank(botResult.rank());
@@ -60,7 +60,7 @@ public class ThreeSevenService {
         return buildState(game, message);
     }
 
-    private HandResult evaluateHand(List<Card> hand) {
+    public HandResult evaluateHandPublic(List<Card> hand) {
 
         // Tres cartas iguales (mismo rank)
         boolean threeOfAKind = hand.get(0).getRank().equals(hand.get(1).getRank())
@@ -132,5 +132,5 @@ public class ThreeSevenService {
                 .build();
     }
 
-    private record HandResult(String rank, int score) {}
+    public record HandResult(String rank, int score) {}
 }

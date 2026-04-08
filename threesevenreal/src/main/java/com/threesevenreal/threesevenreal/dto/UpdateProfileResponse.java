@@ -7,13 +7,10 @@ import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-public class AuthResponse {
-
-    private String token;
+@AllArgsConstructor
+public class UpdateProfileResponse {
     private String username;
-    private String email;
-    private String playerId;
     private String avatarSymbol;
+    private String message;
 }

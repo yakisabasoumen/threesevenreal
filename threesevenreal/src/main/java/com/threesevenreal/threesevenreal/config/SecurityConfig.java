@@ -25,13 +25,12 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.List;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -41,6 +40,7 @@ public class SecurityConfig {
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
+    // Cargar usuarios desde la base de datos
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> userRepository.findByUsername(username)
@@ -65,6 +65,7 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
+    // Filtro JWT para peticiones REST
     @Bean
     public OncePerRequestFilter jwtAuthFilter() {
         return new OncePerRequestFilter() {
@@ -87,9 +88,11 @@ public class SecurityConfig {
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     var userDetails = userDetailsService().loadUserByUsername(username);
                     if (jwtService.isTokenValid(jwt, userDetails)) {
+
                         var authToken = new org.springframework.security.authentication
                                 .UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
+
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                     }
@@ -99,14 +102,21 @@ public class SecurityConfig {
         };
     }
 
+    // 🔥 CONFIGURACIÓN DE SEGURIDAD PRINCIPAL
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+
+                        // Endpoints públicos
                         .requestMatchers("/api/auth/**", "/ws/**").permitAll()
+
+                        // 🔥 NECESARIO para que el lobby no explote
+                        .requestMatchers("/api/chat/history").authenticated()
+
+                        // Todo lo demás requiere JWT
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -118,11 +128,12 @@ public class SecurityConfig {
         return http.build();
     }
 
+    // CORS para permitir el front local
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

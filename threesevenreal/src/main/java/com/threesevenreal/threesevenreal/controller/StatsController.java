@@ -24,6 +24,12 @@ public class StatsController {
         return ResponseEntity.ok(statsService.getStats(user.getId()));
     }
 
+    @GetMapping("/user/{username}")
+    public ResponseEntity<PlayerStatsDTO> getStatsByUsername(
+            @PathVariable String username) {
+        return ResponseEntity.ok(statsService.getStatsByUsername(username));
+    }
+
     @GetMapping("/ranking")
     public ResponseEntity<List<PlayerStatsDTO>> getRanking() {
         return ResponseEntity.ok(statsService.getRanking());
