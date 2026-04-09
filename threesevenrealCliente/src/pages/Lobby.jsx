@@ -10,6 +10,7 @@ const games = [
   { id: 'blackjack',  name: 'Blackjack',     suit: '♣', desc: 'Llega a 21 sin pasarte. Clásico contra la máquina.', badge: 'Clásico' },
   { id: 'threeseven', name: 'Tres y Siete',  suit: '♦', desc: 'Juego de cartas español. La mejor mano gana.',       badge: 'Español' },
   { id: 'poker',      name: "Texas Hold'em", suit: '♠', desc: 'Poker simplificado contra la máquina.',              badge: 'Popular' },
+  { id: 'domino',     name: 'Dominó',        suit: '☰', desc: 'Dominó real contra otro jugador en línea.',            badge: 'Multijugador', onlineOnly: true },
 ];
 
 const HEADER_H = '58px';
@@ -116,9 +117,11 @@ export default function Lobby() {
                 </div>
 
                 <div style={s.cardActions}>
-                  <PrimaryButton style={s.btnPrimary} onClick={() => navigate(`/${game.id}`)}>
-                    Un jugador
-                  </PrimaryButton>
+                  {!game.onlineOnly && (
+                    <PrimaryButton style={s.btnPrimary} onClick={() => navigate(`/${game.id}`)}>
+                      Un jugador
+                    </PrimaryButton>
+                  )}
                   <button style={s.btnSecondary} onClick={() => navigate(`/${game.id}/online`)}>
                     Online
                   </button>
