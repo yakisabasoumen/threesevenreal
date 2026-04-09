@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-export function useWebSocket(roomId, onMessage, playerId) {
+export function useWebSocket(roomId, onMessage, playerId, gameType = 'game') {
   const clientRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [playerStreak, setPlayerStreak] = useState({ winStreak: 0, maxWinStreak: 0 });
@@ -12,17 +12,26 @@ export function useWebSocket(roomId, onMessage, playerId) {
     onMessageRef.current = onMessage;
   }, [onMessage]);
 
+  const prefix = gameType === 'domino' ? 'domino' : 'game';
+
   useEffect(() => {
     if (!roomId || !playerId) return;
 
+    const token = localStorage.getItem('token');
+
     const client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      connectHeaders: {
+        Authorization: token ? `Bearer ${token}` : undefined,
+      },
 
       onConnect: () => {
         setConnected(true);
 
-        // 1. Topic general — JOIN, CHAT, ACTION_NOTICE, errores
-        client.subscribe(`/topic/room/${roomId}`, (msg) => {
+        const roomTopic = gameType === 'domino' ? `/topic/domino.${roomId}` : `/topic/room/${roomId}`;
+        const playerTopic = gameType === 'domino' ? `/topic/domino.${roomId}/${playerId}` : `/topic/room/${roomId}/${playerId}`;
+
+        client.subscribe(roomTopic, (msg) => {
           const message = JSON.parse(msg.body);
           if (message.type === 'JOIN' && message.winStreak != null) {
             setPlayerStreak({ winStreak: message.winStreak, maxWinStreak: message.maxWinStreak });
@@ -30,15 +39,12 @@ export function useWebSocket(roomId, onMessage, playerId) {
           onMessageRef.current(message);
         });
 
-        // 2. Topic personal — STATE_UPDATE con tu mano específica
-        client.subscribe(`/topic/room/${roomId}/${playerId}`, (msg) => {
+        client.subscribe(playerTopic, (msg) => {
           onMessageRef.current(JSON.parse(msg.body));
         });
 
-        // 3. Registrar sesión en el servidor para detectar desconexión
-        //    FIX #1: el backend ahora reenvía el estado si la partida ya empezó
         client.publish({
-          destination: `/app/game/${roomId}/connect`,
+          destination: `/app/${prefix}/${roomId}/connect`,
           body: JSON.stringify({
             type: 'CONNECT',
             roomId,
@@ -56,20 +62,25 @@ export function useWebSocket(roomId, onMessage, playerId) {
     clientRef.current = client;
 
     return () => client.deactivate();
-  }, [roomId, playerId]);
+  }, [roomId, playerId, gameType]);
 
   const sendAction = (action, pid) => {
     if (!clientRef.current?.connected) return;
+
+    const payload = typeof action === 'string'
+      ? { type: 'ACTION', roomId, playerId: pid, action, timestamp: Date.now() }
+      : { ...action, roomId, playerId: pid, timestamp: Date.now() };
+
     clientRef.current.publish({
-      destination: `/app/game/${roomId}/action`,
-      body: JSON.stringify({ type: 'ACTION', roomId, playerId: pid, action, timestamp: Date.now() }),
+      destination: `/app/${gameType === 'domino' ? 'domino' : 'game'}/${roomId}/action`,
+      body: JSON.stringify(payload),
     });
   };
 
   const sendChat = (message, username) => {
     if (!clientRef.current?.connected) return;
     clientRef.current.publish({
-      destination: `/app/game/${roomId}/chat`,
+      destination: `/app/${prefix}/${roomId}/chat`,
       body: JSON.stringify({ type: 'CHAT', roomId, username, message, timestamp: Date.now() }),
     });
   };

@@ -1,15 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
 import api from '../api/axios';
 import GameHeader from '../components/layout/GameHeader';
 import CardHand from '../components/game/CardHand';
+import DominoTileCard from '../components/game/DominoTileCard';
 import PrimaryButton from '../components/ui/PrimaryButton';
 import { t } from '../styles/theme';
 
-const GAME_LABELS = { blackjack: 'Blackjack', threeseven: 'Tres y Siete', poker: 'Poker' };
-const CHAT_VISIBLE_TYPES = new Set(['CHAT', 'JOIN', 'PLAYER_LEFT', 'ACTION_NOTICE', 'GAME_START', 'ERROR']);
+const GAME_LABELS = { blackjack: 'Blackjack', threeseven: 'Tres y Siete', poker: 'Poker', domino: 'Dominó' };
+const CHAT_VISIBLE_TYPES = new Set(['CHAT', 'JOIN', 'PLAYER_LEFT', 'ACTION_NOTICE', 'GAME_START', 'ROUND_END', 'GAME_END', 'ERROR']);
 
 export default function OnlineGame() {
   const { gameType } = useParams();
@@ -18,26 +19,35 @@ export default function OnlineGame() {
   const [phase, setPhase]               = useState('lobby');
   const [roomId, setRoomId]             = useState(null);
   const [availableRooms, setAvailableRooms] = useState([]);
-  const [roomInfo, setRoomInfo]         = useState(null);
   const [gameState, setGameState]       = useState(null);
   const [messages, setMessages]         = useState([]);
   const [chatInput, setChatInput]       = useState('');
   const [loading, setLoading]           = useState(false);
+  const [dominoRoomSize, setDominoRoomSize] = useState(2);
+  const [selectedTileIndex, setSelectedTileIndex] = useState(null);
+  const [selectedSide, setSelectedSide] = useState('LEFT');
   const chatRef = useRef(null);
 
-  const loadAvailableRooms = async () => {
+  const loadAvailableRooms = useCallback(async () => {
     try {
-      const res = await api.get(`/rooms/available/${gameType}`);
+      const res = gameType === 'domino'
+        ? await api.get(`/domino/rooms?maxPlayers=${dominoRoomSize}`)
+        : await api.get(`/rooms/available/${gameType}`);
       setAvailableRooms(res.data);
     } catch (e) { console.error(e); }
-  };
+  }, [gameType, dominoRoomSize]);
 
   const onMessage = (msg) => {
+    if (msg.type === 'ERROR' && msg.playerId !== user.playerId) {
+      return;
+    }
     if (CHAT_VISIBLE_TYPES.has(msg.type)) {
       setMessages(prev => [...prev, msg]);
     }
-    if (msg.type === 'GAME_START') {
-      if (msg.payload) setRoomInfo(msg.payload);
+    if (msg.type === 'GAME_START' || msg.type === 'ROUND_END' || msg.type === 'GAME_END') {
+      if (msg.payload) {
+        setGameState(msg.payload);
+      }
       setPhase('playing');
     }
     if (msg.type === 'STATE_UPDATE') {
@@ -51,16 +61,17 @@ export default function OnlineGame() {
     }, 50);
   };
 
-  const { connected, sendAction, sendChat, playerStreak } = useWebSocket(roomId, onMessage, user.playerId);
+  const { connected, sendAction, sendChat, playerStreak } = useWebSocket(roomId, onMessage, user.playerId, gameType);
 
-  useEffect(() => { loadAvailableRooms(); }, []);
+  useEffect(() => { loadAvailableRooms(); }, [loadAvailableRooms]);
 
   const createRoom = async () => {
     setLoading(true);
     try {
-      const res = await api.post(`/rooms/create/${gameType}`);
+      const res = gameType === 'domino'
+        ? await api.post('/domino/create', null, { params: { maxPlayers: dominoRoomSize } })
+        : await api.post(`/rooms/create/${gameType}`);
       setRoomId(res.data.roomId);
-      setRoomInfo(res.data);
       setPhase('waiting');
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -69,9 +80,10 @@ export default function OnlineGame() {
   const joinRoom = async (id) => {
     setLoading(true);
     try {
-      const res = await api.post(`/rooms/join/${id}`);
+      const res = gameType === 'domino'
+        ? await api.post(`/domino/join/${id}`)
+        : await api.post(`/rooms/join/${id}`);
       setRoomId(id);
-      setRoomInfo(res.data);
       setPhase('waiting');
       if (res.data.status === 'PLAYING') setPhase('playing');
     } catch (e) {
@@ -87,12 +99,27 @@ export default function OnlineGame() {
     setChatInput('');
   };
 
-  // Para Blackjack el turno viene en gameState.currentTurnUsername
-  // Para Tres y Siete el backend ya calcula isMyTurn y lo manda en el DTO
-  const isMyTurn = gameType === 'threeseven'
-    ? gameState?.myTurn === true
-    : gameState?.currentTurnUsername === user.username;
+  const leaveGame = async () => {
+    if (gameType === 'domino' && roomId && isDominoPlaying) {
+      handleAction({ action: 'ABANDON' });
+    }
+    setPhase('lobby');
+    setGameState(null);
+    setRoomId(null);
+    setMessages([]);
+    loadAvailableRooms();
+  };
 
+  const myDominoPlayer = gameState?.players?.find(player => player.playerId === user.playerId);
+  const isMyTurn = gameType === 'domino'
+    ? gameState?.currentTurnPlayerId === user.playerId || myDominoPlayer?.turn === true
+    : gameType === 'threeseven'
+      ? gameState?.myTurn === true
+      : gameState?.currentTurnUsername === user.username;
+
+  const isDominoPlaying = gameType === 'domino' && gameState?.status === 'PLAYING';
+  const canDraw = isDominoPlaying && isMyTurn && gameState?.pool > 0;
+  const canPass = isDominoPlaying && gameState?.pool <= 0;
   const isFinished = gameState?.status && gameState.status !== 'PLAYING';
 
   const connectionIndicator = (
@@ -103,9 +130,144 @@ export default function OnlineGame() {
 
   // ── Panel de juego según gameType ──────────────────────────────────────────
   const renderGamePanel = () => {
+    if (gameType === 'domino') return renderDominoPanel();
     if (gameType === 'threeseven') return renderThreeSevenPanel();
     return renderBlackjackPanel();
   };
+
+  const renderDominoPanel = () => (
+    <div style={s.gamePanel}>
+      <div style={{
+        ...s.turnBanner,
+        borderColor: isMyTurn ? t.win : t.loss,
+        boxShadow: `0 0 16px ${isMyTurn ? t.win : t.loss}33`,
+      }}>
+        <span style={{ color: isMyTurn ? t.win : t.loss }}>
+          {isMyTurn ? '🟢 Tu turno' : `⏳ Turno de ${gameState?.currentTurnUsername || '...'}`}
+        </span>
+      </div>
+
+      <div style={s.dominoScoreboard}>
+        <div style={s.dominoScoreBox}>
+          <span style={s.dominoScoreLabel}>Equipo A</span>
+          <strong>{gameState?.totalPoints?.team1 ?? 0}</strong>
+        </div>
+        <div style={s.dominoScoreBox}>
+          <span style={s.dominoScoreLabel}>Equipo B</span>
+          <strong>{gameState?.totalPoints?.team2 ?? 0}</strong>
+        </div>
+        <div style={s.dominoScoreBox}>
+          <span style={s.dominoScoreLabel}>Ronda</span>
+          <strong>{gameState?.roundNumber ?? 1}</strong>
+        </div>
+      </div>
+
+      <div style={s.dominoBoard}>
+        {gameState?.board?.length > 0 ? gameState.board.map((tile, index) => (
+          <DominoTileCard
+            key={index}
+            left={tile.left}
+            right={tile.right}
+            small
+            compact={gameState.board.length > 18}
+          />
+        )) : (
+          <div style={s.dominoEmpty}>La mesa está vacía. Juega cualquier ficha.</div>
+        )}
+      </div>
+
+      {gameState?.message && <p style={s.gameMessage}>{gameState.message}</p>}
+
+      <div style={s.playerHandPanel}>
+        <div style={s.playerHandTitle}>Tu mano</div>
+        <div style={s.dominoHand}>
+          {myDominoPlayer?.hand?.map((tile, index) => (
+            <button
+              key={index}
+              style={{
+                ...s.dominoHandTile,
+                borderColor: selectedTileIndex === index ? t.gold : t.border,
+              }}
+              onClick={() => setSelectedTileIndex(index)}
+              type="button"
+            >
+              <DominoTileCard left={tile.left} right={tile.right} small />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={s.dominoActions}>
+        <div style={s.dominoActionGroup}>
+          <button
+            style={selectedSide === 'LEFT' ? s.dominoSideActive : s.dominoSideButton}
+            type="button"
+            onClick={() => setSelectedSide('LEFT')}
+          >
+            Izquierda
+          </button>
+          <button
+            style={selectedSide === 'RIGHT' ? s.dominoSideActive : s.dominoSideButton}
+            type="button"
+            onClick={() => setSelectedSide('RIGHT')}
+          >
+            Derecha
+          </button>
+        </div>
+        <div style={s.dominoActionGroup}>
+          <button
+            style={s.btnHit}
+            onClick={() => handleAction({ action: 'PLAY', tileIndex: selectedTileIndex, side: selectedSide })}
+            disabled={!isDominoPlaying || !isMyTurn || selectedTileIndex === null}
+          >
+            🧩 Jugar ficha
+          </button>
+          <button
+            style={s.btnStand}
+            onClick={() => handleAction({ action: 'DRAW' })}
+            disabled={!canDraw}
+          >
+            📥 Robar
+          </button>
+          {gameState?.pool <= 0 && (
+            <button
+              style={s.btnOutline}
+              onClick={() => handleAction({ action: 'PASS' })}
+              disabled={!canPass}
+            >
+              ⏭ Pasar
+            </button>
+          )}
+          <button
+            style={s.btnSurrender}
+            onClick={() => handleAction({ action: 'SURRENDER' })}
+            disabled={!isDominoPlaying}
+          >
+            🏳️ Rendirse
+          </button>
+        </div>
+        {isDominoPlaying && (
+          <div style={s.actions}>
+            <button
+              style={s.btnLeave}
+              type="button"
+              onClick={leaveGame}
+            >
+              🚪 Salir al lobby (abandonar)
+            </button>
+          </div>
+        )}
+      </div>
+
+      {isFinished && (
+        <div style={s.actions}>
+          <PrimaryButton onClick={leaveGame}>
+            🔄 Volver al lobby online
+          </PrimaryButton>
+        </div>
+      )}
+    </div>
+  );
 
   const renderThreeSevenPanel = () => (
     <div style={s.gamePanel}>
@@ -246,6 +408,19 @@ export default function OnlineGame() {
               </PrimaryButton>
               <button style={s.btnOutline} onClick={loadAvailableRooms}>🔄 Actualizar</button>
             </div>
+            {gameType === 'domino' && (
+              <div style={s.dominoRoomSizeRow}>
+                <span style={s.subtitle}>Tamaño de sala</span>
+                <select
+                  style={s.dominoRoomSizeSelect}
+                  value={dominoRoomSize}
+                  onChange={(e) => setDominoRoomSize(Number(e.target.value))}
+                >
+                  <option value={2}>2 jugadores</option>
+                  <option value={4}>4 jugadores</option>
+                </select>
+              </div>
+            )}
             {availableRooms.length === 0 ? (
               <p style={s.empty}>No hay salas disponibles. ¡Crea una!</p>
             ) : (
@@ -334,6 +509,8 @@ const s = {
   lobbyBox: { maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' },
   subtitle: { color: t.gold, fontFamily: t.fontDisplay, fontSize: '1.3rem', fontWeight: 700, margin: '0 0 0.25rem' },
   lobbyActions: { display: 'flex', gap: '0.75rem' },
+  dominoRoomSizeRow: { display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.75rem' },
+  dominoRoomSizeSelect: { padding: '0.75rem 1rem', borderRadius: '8px', border: `1px solid ${t.border}`, background: t.bg3, color: t.textPrimary, fontFamily: t.fontBody },
   btnOutline: { padding: '0.85rem 1.5rem', borderRadius: '8px', border: `1px solid ${t.border}`, background: 'transparent', color: t.gold, cursor: 'pointer', fontSize: '0.9rem', fontFamily: t.fontBody, transition: 'all 0.2s' },
   empty: { color: t.textSecondary, textAlign: 'center', padding: '2rem', fontFamily: t.fontBody },
   roomList: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
@@ -353,9 +530,24 @@ const s = {
   resultBanner: { textAlign: 'center', padding: '1rem', borderRadius: '8px', border: '1px solid', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' },
   hiddenHand: { background: t.bg2, border: `1px dashed ${t.border}`, borderRadius: '12px', padding: '1.5rem', textAlign: 'center' },
   gameMessage: { color: t.textSecondary, fontStyle: 'italic', textAlign: 'center', fontFamily: t.fontBody, fontSize: '0.9rem' },
-  actions: { display: 'flex', gap: '1rem', justifyContent: 'center' },
-  btnHit:   { padding: '0.85rem 2rem', borderRadius: '8px', border: '1px solid rgba(74,222,128,0.4)',  background: 'rgba(74,222,128,0.1)',  color: t.win,  fontSize: '0.95rem', fontWeight: '700', cursor: 'pointer', fontFamily: t.fontBody },
-  btnStand: { padding: '0.85rem 2rem', borderRadius: '8px', border: '1px solid rgba(248,113,113,0.4)', background: 'rgba(248,113,113,0.1)', color: t.loss, fontSize: '0.95rem', fontWeight: '700', cursor: 'pointer', fontFamily: t.fontBody },
+  dominoScoreboard: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(120px, 1fr))', gap: '0.75rem' },
+  dominoScoreBox: { background: t.bg3, border: `1px solid ${t.border}`, borderRadius: '12px', padding: '1rem', textAlign: 'center', boxShadow: t.shadowCard },
+  dominoScoreLabel: { color: t.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '0.35rem' },
+  dominoBoard: { minHeight: '110px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(48px, 1fr))', gap: '0.35rem', alignContent: 'center', justifyItems: 'center', background: 'radial-gradient(circle at top, rgba(78, 175, 123, 0.08), transparent 60%), ' + t.bg3, border: `1px solid ${t.border}`, borderRadius: '18px', padding: '1rem', boxShadow: t.shadowCard, overflowX: 'auto' },
+  dominoEmpty: { color: t.textSecondary, fontFamily: t.fontBody, textAlign: 'center', width: '100%' },
+  playerHandPanel: { display: 'flex', flexDirection: 'column', gap: '0.65rem' },
+  playerHandTitle: { color: t.gold, fontSize: '0.95rem', fontFamily: t.fontDisplay, fontWeight: 700 },
+  dominoHand: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: '0.5rem' },
+  dominoHandTile: { padding: 0, background: 'transparent', borderRadius: '12px', border: `1px solid ${t.border}`, cursor: 'pointer' },
+  dominoActions: { display: 'grid', gap: '0.75rem', marginTop: '1rem' },
+  dominoActionGroup: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' },
+  dominoSideButton: { padding: '0.8rem 1rem', borderRadius: '8px', border: `1px solid ${t.border}`, background: 'transparent', color: t.textPrimary, cursor: 'pointer', fontFamily: t.fontBody },
+  dominoSideActive: { padding: '0.8rem 1rem', borderRadius: '8px', border: `1px solid ${t.gold}`, background: 'rgba(250,214,165,0.12)', color: t.gold, cursor: 'pointer', fontFamily: t.fontBody },
+  actions: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' },
+  btnHit:   { padding: '0.85rem 1.5rem', borderRadius: '8px', border: '1px solid rgba(74,222,128,0.4)',  background: 'rgba(74,222,128,0.1)',  color: t.win,  fontSize: '0.9rem', fontWeight: '700', cursor: 'pointer', fontFamily: t.fontBody, minWidth: '120px' },
+  btnStand: { padding: '0.85rem 1.5rem', borderRadius: '8px', border: '1px solid rgba(248,113,113,0.4)', background: 'rgba(248,113,113,0.1)', color: t.loss, fontSize: '0.9rem', fontWeight: '700', cursor: 'pointer', fontFamily: t.fontBody, minWidth: '120px' },
+  btnSurrender: { padding: '0.85rem 1.5rem', borderRadius: '8px', border: '1px solid rgba(250,170,60,0.4)', background: 'rgba(250,170,60,0.12)', color: t.gold, fontSize: '0.9rem', fontWeight: '700', cursor: 'pointer', fontFamily: t.fontBody, minWidth: '120px' },
+  btnLeave: { padding: '0.85rem 1.5rem', borderRadius: '8px', border: '1px solid rgba(248,113,113,0.5)', background: 'rgba(248,113,113,0.12)', color: t.loss, fontSize: '0.9rem', fontWeight: '700', cursor: 'pointer', fontFamily: t.fontBody, minWidth: '180px' },
 
   chatPanel: { background: t.bg2, borderRadius: '12px', border: `1px solid ${t.border}`, padding: '1.25rem', display: 'flex', flexDirection: 'column', height: '500px', boxShadow: t.shadowCard },
   chatTitle: { color: t.gold, fontFamily: t.fontDisplay, fontSize: '1rem', fontWeight: 600, margin: '0 0 0.75rem', letterSpacing: '0.05em' },

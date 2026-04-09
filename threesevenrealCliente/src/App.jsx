@@ -24,7 +24,7 @@ export default function App() {
         <Route path="/lobby"    element={<ProtectedRoute><Lobby /></ProtectedRoute>} />
         <Route path="/blackjack"  element={<ProtectedRoute><Blackjack /></ProtectedRoute>} />
         <Route path="/threeseven" element={<ProtectedRoute><ThreeSeven /></ProtectedRoute>} />
-        <Route path="/poker"    element={<ProtectedRoute><Poker /></ProtectedRoute>} />
+        <Route path="/poker"      element={<ProtectedRoute><Poker /></ProtectedRoute>} />
         <Route path="/profile"  element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/profile/:username" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/ranking"  element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
