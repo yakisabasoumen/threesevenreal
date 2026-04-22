@@ -35,9 +35,6 @@ const Friends = () => {
     }
   }, [searchQuery]);
 
-  // -----------------------------
-  // CARGA INICIAL
-  // -----------------------------
   const loadFriends = async () => {
     try {
       const response = await api.get('/friends');
@@ -68,9 +65,6 @@ const Friends = () => {
     initialize();
   }, []);
 
-  // -----------------------------
-  // BÚSQUEDA AUTOMÁTICA (DEBOUNCE)
-  // -----------------------------
   useEffect(() => {
     const delay = setTimeout(() => {
       searchUsers();
@@ -79,9 +73,6 @@ const Friends = () => {
     return () => clearTimeout(delay);
   }, [searchUsers]);
 
-  // -----------------------------
-  // ESTADO DEL USUARIO BUSCADO
-  // -----------------------------
   const getUserStatus = (userId) => {
     if (friends.some(f => f.id === userId)) return 'friend';
     if (sentRequests.some(r => r.receiverId === userId)) return 'sent';
@@ -89,9 +80,6 @@ const Friends = () => {
     return 'none';
   };
 
-  // -----------------------------
-  // ACCIONES
-  // -----------------------------
   const sendFriendRequest = async (receiverId) => {
     try {
       await api.post('/friends/request', { receiverId });
@@ -156,9 +144,6 @@ const Friends = () => {
     setTimeout(() => setStatusMessage(''), 3000);
   };
 
-  // -----------------------------
-  // UI CARD
-  // -----------------------------
   const openUserProfile = (username) => {
     if (!username) return;
     navigate(`/profile/${encodeURIComponent(username)}`);
@@ -205,9 +190,6 @@ const Friends = () => {
     </div>
   );
 
-  // -----------------------------
-  // RENDER
-  // -----------------------------
   return (
     <div style={{
       padding: '30px 20px 60px',
@@ -218,7 +200,6 @@ const Friends = () => {
       color: t.textPrimary
     }}>
 
-      {/* BOTÓN VOLVER AL MENÚ */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -247,7 +228,6 @@ const Friends = () => {
         </button>
       </div>
 
-      {/* TÍTULO PRINCIPAL */}
       <h1 style={{
         fontFamily: t.fontDisplay,
         fontSize: '2.4rem',
@@ -271,7 +251,6 @@ const Friends = () => {
         Hola {user?.username}, administra tus amigos y solicitudes desde una misma pantalla.
       </p>
 
-      {/* TABS GOLD PREMIUM */}
       <div style={{
         display: 'flex',
         marginBottom: '25px',
@@ -308,7 +287,6 @@ const Friends = () => {
           >
             {tab.label}
 
-            {/* BADGE DORADO */}
             {tab.count > 0 && (
               <span style={{
                 position: 'absolute',
@@ -403,7 +381,6 @@ const Friends = () => {
         </div>
       )}
 
-      {/* Sent */}
       {activeTab === 'sent' && (
         <div>
           <h2 style={{ fontFamily: t.fontDisplay, marginBottom: '20px' }}>
@@ -433,7 +410,6 @@ const Friends = () => {
         </div>
       )}
 
-      {/* Search */}
       {activeTab === 'search' && (
         <div>
           <h2 style={{ fontFamily: t.fontDisplay, marginBottom: '20px' }}>

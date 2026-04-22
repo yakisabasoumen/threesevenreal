@@ -208,6 +208,11 @@ public class DominoGameService {
         DominoRoom room = loadPlayingRoom(gameId);
         DominoGameState state = loadState(room);
 
+        String surrenderUsername = state.getPlayers().stream()
+            .filter(p -> p.getPlayerId().equals(playerId))
+            .map(DominoGameState.DominoPlayerState::getUsername)
+            .findFirst().orElse("Un jugador");
+
         int surrenderTeam = getTeam(state, playerId);
         int winningTeam = surrenderTeam == 1 ? 2 : 1;
         int score = scoreOpponents(state, winningTeam);
@@ -216,12 +221,14 @@ public class DominoGameService {
         DominoGameState finalState = cloneState(state);
         boolean matchFinished = maybeFinishMatch(room, state);
 
+        String msg = surrenderUsername + " se rindió";
+
         if (matchFinished) {
             persistRoom(room, state);
-            broadcastState(room, finalState, "GAME_END", "Jugador se rindió");
+            broadcastState(room, finalState, "GAME_END", msg);
         } else {
             persistRoom(room, state);
-            broadcastState(room, finalState, "ROUND_END", "Jugador se rindió");
+            broadcastState(room, finalState, "ROUND_END", msg);
             broadcastState(room, state, "GAME_START", "Nueva ronda iniciada");
         }
     }
@@ -241,7 +248,7 @@ public class DominoGameService {
         room.setStatus("FINISHED");
         registerMatchResults(state, winningTeam);
         persistRoom(room, state);
-        broadcastState(room, state, "GAME_END", "Jugador abandonó. Tu oponente ganó por abandono.");
+        broadcastState(room, state, "GAME_END", "Tu contrincante abandonó la partida, has ganado!.");
     }
 
     // ------------------------------------------------------------------

@@ -15,8 +15,8 @@ public class ChatService {
     private final List<ChatMessage> messages = new CopyOnWriteArrayList<>();
     private final Map<String, Instant> userCooldowns = new ConcurrentHashMap<>();
 
-    private static final long MESSAGE_TTL_SECONDS = 120;  // Mensajes duran 2 minutos
-    private static final long COOLDOWN_SECONDS    = 3;    // 3s entre mensajes
+    private static final long MESSAGE_TTL_SECONDS = 120;  
+    private static final long COOLDOWN_SECONDS    = 3;   
 
     public boolean isOnCooldown(String username) {
         Instant last = userCooldowns.get(username);
@@ -51,7 +51,6 @@ public class ChatService {
                 .toList();
     }
 
-    // Borra mensajes expirados cada 60 segundos
     @Scheduled(fixedDelay = 60_000)
     public void purgeExpiredMessages() {
         Instant cutoff = Instant.now().minusSeconds(MESSAGE_TTL_SECONDS);

@@ -148,7 +148,7 @@ const LandingPage = () => {
             maxWidth: '600px',
             margin: '0 auto 40px'
           }}>
-            Sumérgete en el emocionante mundo del casino online con nuestros juegos de blackjack, tres y siete, y Texas Hold'em. Compite en tiempo real y gana premios exclusivos.
+            Sumérgete en el emocionante mundo del casino online con nuestros juegos de blackjack, dominó, tres y siete, y Texas Hold'em. Compite en tiempo real y gana premios exclusivos.
           </p>
           <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '40px', flexWrap: 'wrap' }}>
             <PrimaryButton onClick={handleStartFree} style={{ fontSize: '1.1rem', padding: '12px 24px' }}>
@@ -175,7 +175,7 @@ const LandingPage = () => {
           </div>
           <div style={{ display: 'flex', gap: '30px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.9rem', color: t.textMuted }}>✓ Sin depósito inicial</span>
-            <span style={{ fontSize: '0.9rem', color: t.textMuted }}>✓ 3 juegos disponibles</span>
+            <span style={{ fontSize: '0.9rem', color: t.textMuted }}>✓ 4 juegos disponibles</span>
             <span style={{ fontSize: '0.9rem', color: t.textMuted }}>✓ Chat en tiempo real</span>
           </div>
         </div>
@@ -205,7 +205,8 @@ const LandingPage = () => {
           {[
             { icon: '♣', name: 'Blackjack', desc: 'El clásico juego de cartas. Acércate a 21 sin pasarte.', difficulty: 'Fácil', color: t.textPrimary },
             { icon: '♦', name: 'Tres y Siete', desc: 'Un juego único con dados y estrategia.', difficulty: 'Medio', color: t.textPrimary },
-            { icon: '♠', name: 'Texas Hold\'em', desc: 'El rey del póker. Compite contra otros jugadores.', difficulty: 'Difícil', color: t.textPrimary }
+            { icon: '♠', name: 'Texas Hold\'em', desc: 'El rey del póker. Compite contra otros jugadores.', difficulty: 'Difícil', color: t.textPrimary },
+            { icon: '☰', name: 'Dominó', desc: 'Un juego de fichas estratégico.', difficulty: 'Medio', color: t.textPrimary }
           ].map((game, index) => (
             <div key={index} className="cardHover" style={{
               backgroundColor: t.bg2,

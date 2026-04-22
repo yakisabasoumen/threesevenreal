@@ -19,8 +19,8 @@ export default function Lobby() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const { stats } = useLobbyStats();        // Stats del lobby
-  const { onlineUsers } = useAppPresence(); // Usuarios activos globales
+  const { stats } = useLobbyStats();        
+  const { onlineUsers } = useAppPresence(); 
 
   return (
     <div style={s.root}>

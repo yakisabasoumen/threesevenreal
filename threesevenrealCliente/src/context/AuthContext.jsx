@@ -1,14 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-
 import { AuthContext } from './AuthContextImpl.js';
+
 const PERSISTED_KEYS = ['token', 'username', 'playerId', 'avatarSymbol'];
+
+// ✅ Helper para verificar si el token está expirado
+const isTokenExpired = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
     if (!token) return null;
+
+    // ✅ Si el token está expirado, limpiar localStorage y no cargar el usuario
+    if (isTokenExpired(token)) {
+      localStorage.clear();
+      return null;
+    }
 
     return PERSISTED_KEYS.reduce((acc, key) => {
       const val = localStorage.getItem(key);
@@ -19,10 +35,8 @@ export function AuthProvider({ children }) {
 
   const clientRef = useRef(null);
 
-  // 🔥 WEBSOCKET GLOBAL — PRESENCIA GLOBAL
   useEffect(() => {
     if (!user) {
-      // Si no hay usuario, desconectar si existe
       if (clientRef.current?.connected) {
         clientRef.current.publish({
           destination: "/app/app.disconnect",
@@ -37,19 +51,23 @@ export function AuthProvider({ children }) {
 
     const token = localStorage.getItem("token");
 
+    // ✅ Doble check antes de conectar el WebSocket
+    if (isTokenExpired(token)) {
+      localStorage.clear();
+      setUser(null);
+      return;
+    }
+
     const client = new Client({
       webSocketFactory: () => new SockJS("http://localhost:8080/ws"),
       connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 3000,
-
       onConnect: () => {
-        // Registrar presencia global
         client.publish({
           destination: "/app/app.connect",
           body: user.username
         });
       },
-
       onDisconnect: () => {
         window.globalStompClient = null;
       }
@@ -58,12 +76,12 @@ export function AuthProvider({ children }) {
     window.globalStompClient = client;
     client.activate();
     clientRef.current = client;
-
-    // NO cleanup aquí — la conexión global permanece hasta logout
   }, [user]);
 
   const login = (data) => {
-    const next = { ...user, ...data };
+    
+    localStorage.clear();
+    const next = { ...data };
     PERSISTED_KEYS.forEach(key => {
       if (next[key] != null) localStorage.setItem(key, next[key]);
     });
@@ -71,7 +89,6 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    // Desconectar WebSocket global
     if (clientRef.current?.connected) {
       clientRef.current.publish({
         destination: "/app/app.disconnect",
@@ -81,7 +98,6 @@ export function AuthProvider({ children }) {
       clientRef.current = null;
       window.globalStompClient = null;
     }
-
     localStorage.clear();
     setUser(null);
   };
