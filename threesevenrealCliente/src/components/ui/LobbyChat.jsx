@@ -1,4 +1,3 @@
-// src/components/ui/LobbyChat.jsx
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLobbyChat } from '../../hooks/useLobbyChat';
@@ -39,10 +38,6 @@ export default function LobbyChat() {
   const nearLimit = input.length > 170;
 
   return (
-    /*
-      El aside padre ya tiene height: calc(100vh - header - padding).
-      Este componente se estira para llenarlo todo con flex.
-    */
     <div style={s.wrapper}>
 
       {/* ── HEADER ── */}
@@ -190,7 +185,7 @@ const baseRow = {
 
 const s = {
   wrapper: {
-    flex: 1,                   /* ocupa todo el alto del aside */
+    flex: 1,                   
     display: 'flex',
     flexDirection: 'column',
     background: t.bg2,
@@ -199,7 +194,7 @@ const s = {
     overflow: 'hidden',
     boxShadow: t.shadowCard,
     fontFamily: t.fontBody,
-    minHeight: 0,              /* necesario para que flex no sobredesborde */
+    minHeight: 0,           
   },
 
   header: {

@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -40,8 +41,8 @@ public class SecurityConfig {
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
-    // Cargar usuarios desde la base de datos
     @Bean
+    @Primary
     public UserDetailsService userDetailsService() {
         return username -> userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
@@ -65,7 +66,6 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    // Filtro JWT para peticiones REST
     @Bean
     public OncePerRequestFilter jwtAuthFilter() {
         return new OncePerRequestFilter() {
@@ -83,40 +83,39 @@ public class SecurityConfig {
                 }
 
                 final String jwt = authHeader.substring(7);
-                final String username = jwtService.extractUsername(jwt);
+
+                final String username;
+                try {
+                    username = jwtService.extractUsername(jwt);
+                } catch (Exception e) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    var userDetails = userDetailsService().loadUserByUsername(username);
-                    if (jwtService.isTokenValid(jwt, userDetails)) {
-
+                    var userDetails = userRepository.findByUsername(username).orElse(null);
+                    if (userDetails != null && jwtService.isTokenValid(jwt, userDetails)) {
                         var authToken = new org.springframework.security.authentication
                                 .UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
-
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                     }
                 }
+
                 filterChain.doFilter(request, response);
             }
         };
     }
 
-    // 🔥 CONFIGURACIÓN DE SEGURIDAD PRINCIPAL
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-
-                        // Endpoints públicos
                         .requestMatchers("/api/auth/**", "/ws/**").permitAll()
-
-                        // 🔥 NECESARIO para que el lobby no explote
                         .requestMatchers("/api/chat/history").authenticated()
-
-                        // Todo lo demás requiere JWT
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -128,7 +127,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // CORS para permitir el front local
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

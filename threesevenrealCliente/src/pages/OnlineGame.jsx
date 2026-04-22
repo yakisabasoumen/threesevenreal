@@ -61,8 +61,6 @@ export default function OnlineGame() {
     }, 50);
   };
 
-  const { connected, sendAction, sendChat, playerStreak } = useWebSocket(roomId, onMessage, user.playerId, gameType);
-
   useEffect(() => { loadAvailableRooms(); }, [loadAvailableRooms]);
 
   const createRoom = async () => {
@@ -121,12 +119,6 @@ export default function OnlineGame() {
   const canDraw = isDominoPlaying && isMyTurn && gameState?.pool > 0;
   const canPass = isDominoPlaying && gameState?.pool <= 0;
   const isFinished = gameState?.status && gameState.status !== 'PLAYING';
-
-  const connectionIndicator = (
-    <div style={{ color: connected ? t.win : t.loss, fontSize: '0.85rem', fontFamily: t.fontBody }}>
-      {connected ? '● Conectado' : '○ Desconectado'}
-    </div>
-  );
 
   // ── Panel de juego según gameType ──────────────────────────────────────────
   const renderGamePanel = () => {
@@ -220,14 +212,14 @@ export default function OnlineGame() {
             onClick={() => handleAction({ action: 'PLAY', tileIndex: selectedTileIndex, side: selectedSide })}
             disabled={!isDominoPlaying || !isMyTurn || selectedTileIndex === null}
           >
-            🧩 Jugar ficha
+            Jugar ficha
           </button>
           <button
             style={s.btnStand}
             onClick={() => handleAction({ action: 'DRAW' })}
             disabled={!canDraw}
           >
-            📥 Robar
+            Agarrar Ficha
           </button>
           {gameState?.pool <= 0 && (
             <button
@@ -235,7 +227,7 @@ export default function OnlineGame() {
               onClick={() => handleAction({ action: 'PASS' })}
               disabled={!canPass}
             >
-              ⏭ Pasar
+              Pasar
             </button>
           )}
           <button
@@ -243,7 +235,7 @@ export default function OnlineGame() {
             onClick={() => handleAction({ action: 'SURRENDER' })}
             disabled={!isDominoPlaying}
           >
-            🏳️ Rendirse
+            Rendirse
           </button>
         </div>
         {isDominoPlaying && (
@@ -253,7 +245,7 @@ export default function OnlineGame() {
               type="button"
               onClick={leaveGame}
             >
-              🚪 Salir al lobby (abandonar)
+              Salir al lobby (abandonar)
             </button>
           </div>
         )}
@@ -262,7 +254,7 @@ export default function OnlineGame() {
       {isFinished && (
         <div style={s.actions}>
           <PrimaryButton onClick={leaveGame}>
-            🔄 Volver al lobby online
+            Volver al lobby online
           </PrimaryButton>
         </div>
       )}
@@ -394,7 +386,7 @@ export default function OnlineGame() {
 
   return (
     <div style={s.container}>
-      <GameHeader title={`🌐 ${GAME_LABELS[gameType]} Online - Racha: ${playerStreak.winStreak}`} right={connectionIndicator} />
+      <GameHeader title={`${GAME_LABELS[gameType]} Online`} />
 
       <main style={s.main}>
 
@@ -406,7 +398,7 @@ export default function OnlineGame() {
               <PrimaryButton onClick={createRoom} disabled={loading}>
                 {loading ? '...' : '+ Crear sala'}
               </PrimaryButton>
-              <button style={s.btnOutline} onClick={loadAvailableRooms}>🔄 Actualizar</button>
+              <button style={s.btnOutline} onClick={loadAvailableRooms}>Actualizar</button>
             </div>
             {gameType === 'domino' && (
               <div style={s.dominoRoomSizeRow}>
@@ -450,11 +442,9 @@ export default function OnlineGame() {
             <h2 style={s.subtitle}>Esperando rival...</h2>
             <p style={s.waitCode}>Código de sala: <strong style={{ color: t.gold }}>{roomId?.slice(-6)}</strong></p>
             <p style={s.hint}>Comparte el código con tu rival para que se una</p>
-            {connected && <p style={{ color: t.win, fontFamily: t.fontBody }}>✓ Conectado al WebSocket</p>}
           </div>
         )}
 
-        {/* ── PLAYING ── */}
         {phase === 'playing' && (
           <div style={s.gameArea}>
             {renderGamePanel()}
