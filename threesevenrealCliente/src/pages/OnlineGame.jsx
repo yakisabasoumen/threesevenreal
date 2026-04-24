@@ -38,6 +38,7 @@ export default function OnlineGame() {
   }, [gameType, dominoRoomSize]);
 
   const onMessage = (msg) => {
+    console.log('📨 RAW msg completo:', JSON.stringify(msg));
     if (msg.type === 'ERROR' && msg.playerId !== user.playerId) {
       return;
     }
@@ -62,6 +63,22 @@ export default function OnlineGame() {
   };
 
   useEffect(() => { loadAvailableRooms(); }, [loadAvailableRooms]);
+
+  useEffect(() => {
+    if (phase !== 'waiting' || !roomId || gameType !== 'domino') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/domino/rooms/${roomId}/state`);
+        if (res.data?.status === 'PLAYING' && res.data?.gameState) {
+          setGameState(res.data.gameState);
+          setPhase('playing');
+        }
+      } catch (e) { /* ignorar */ }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [phase, roomId, gameType]);
 
   const createRoom = async () => {
     setLoading(true);

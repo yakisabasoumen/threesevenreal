@@ -45,4 +45,16 @@ public class DominoController {
     public ResponseEntity<List<DominoRoomDTO>> getAllAvailableRooms() {
         return ResponseEntity.ok(dominoGameService.getAvailableRooms());
     }
+
+    // ← NUEVO: polling de respaldo para el creador
+    @GetMapping("/rooms/{roomId}/state")
+    public ResponseEntity<?> getRoomState(
+            @PathVariable String roomId,
+            @AuthenticationPrincipal User user) {
+        try {
+            return ResponseEntity.ok(dominoGameService.getRoomState(roomId, user.getId()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
 }
