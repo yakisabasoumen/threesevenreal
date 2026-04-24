@@ -28,7 +28,7 @@ export function useWebSocket(roomId, onMessage, playerId, gameType = 'game') {
       onConnect: () => {
         setConnected(true);
 
-        const roomTopic = gameType === 'domino' ? `/topic/domino.${roomId}` : `/topic/room/${roomId}`;
+        const roomTopic   = gameType === 'domino' ? `/topic/domino.${roomId}`             : `/topic/room/${roomId}`;
         const playerTopic = gameType === 'domino' ? `/topic/domino.${roomId}/${playerId}` : `/topic/room/${roomId}/${playerId}`;
 
         client.subscribe(roomTopic, (msg) => {
@@ -43,15 +43,18 @@ export function useWebSocket(roomId, onMessage, playerId, gameType = 'game') {
           onMessageRef.current(JSON.parse(msg.body));
         });
 
-        client.publish({
-          destination: `/app/${prefix}/${roomId}/connect`,
-          body: JSON.stringify({
-            type: 'CONNECT',
-            roomId,
-            playerId,
-            timestamp: Date.now(),
-          }),
-        });
+        // ← delay para asegurar que las suscripciones están activas antes del CONNECT
+        setTimeout(() => {
+          client.publish({
+            destination: `/app/${prefix}/${roomId}/connect`,
+            body: JSON.stringify({
+              type: 'CONNECT',
+              roomId,
+              playerId,
+              timestamp: Date.now(),
+            }),
+          });
+        }, 300);
       },
 
       onDisconnect: () => setConnected(false),

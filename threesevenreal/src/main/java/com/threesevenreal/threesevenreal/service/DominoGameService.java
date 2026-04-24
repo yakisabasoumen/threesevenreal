@@ -251,6 +251,21 @@ public class DominoGameService {
         broadcastState(room, state, "GAME_END", "Tu contrincante abandonó la partida, has ganado!.");
     }
 
+    public Map<String, Object> getRoomState(String roomId, String playerId) {
+        DominoRoom room = dominoRoomRepository.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Sala no encontrada"));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", room.getStatus());
+
+        if ("PLAYING".equals(room.getStatus())) {
+            DominoGameState state = loadState(room);
+            response.put("gameState", buildStateDTO(state, "Estado actual"));
+        }
+
+        return response;
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
