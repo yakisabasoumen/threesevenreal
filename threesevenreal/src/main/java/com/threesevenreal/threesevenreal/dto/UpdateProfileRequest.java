@@ -9,4 +9,5 @@ public class UpdateProfileRequest {
     private String currentPassword;
     private String newPassword;
     private String avatarSymbol; 
+    private String avatarImage;
 }

@@ -54,6 +54,10 @@ public class UserService {
             currentUser.setAvatarSymbol(req.getAvatarSymbol());
         }
 
+        if (req.getAvatarImage() != null) {
+            currentUser.setAvatarImage(req.getAvatarImage().isBlank() ? null : req.getAvatarImage());
+        }
+
         userRepository.save(currentUser);
 
         return UpdateProfileResponse.builder()

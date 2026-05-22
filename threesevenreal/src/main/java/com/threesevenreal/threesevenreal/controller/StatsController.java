@@ -31,7 +31,11 @@ public class StatsController {
     }
 
     @GetMapping("/ranking")
-    public ResponseEntity<List<PlayerStatsDTO>> getRanking() {
+    public ResponseEntity<List<PlayerStatsDTO>> getRanking(
+            @RequestParam(required = false) String gameType) {
+        if (gameType != null && !gameType.isBlank()) {
+            return ResponseEntity.ok(statsService.getRankingByGame(gameType));
+        }
         return ResponseEntity.ok(statsService.getRanking());
     }
 }

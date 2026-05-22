@@ -24,12 +24,9 @@ public class UserController {
      * Requiere JWT válido en el header Authorization.
      */
     @PatchMapping("/me")
-    public ResponseEntity<?> updateProfile(
-            @RequestBody UpdateProfileRequest request
-    ) {
+    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) auth.getPrincipal();
-
         try {
             UpdateProfileResponse response = userService.updateProfile(currentUser, request);
             return ResponseEntity.ok(response);
