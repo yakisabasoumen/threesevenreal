@@ -1,19 +1,21 @@
 import { t } from '../../styles/theme';
 
 const defaultColorMap = {
-  PLAYER_WIN: t.win,
-  DEALER_WIN: t.loss,
-  BOT_WIN:    t.loss,
-  PUSH:       t.push,
-  PLAYER_FOLD: t.push,
+  PLAYER_WIN:   t.win,
+  OPPONENT_WIN: t.loss,
+  DEALER_WIN:   t.loss,
+  BOT_WIN:      t.loss,
+  PUSH:         t.push,
+  PLAYER_FOLD:  t.push,
 };
 
 const defaultTextMap = {
-  PLAYER_WIN:  '✦ ¡Ganaste!',
-  DEALER_WIN:  'Gana el dealer',
-  BOT_WIN:     'Gana el bot',
-  PUSH:        'Empate',
-  PLAYER_FOLD: 'Te has retirado',
+  PLAYER_WIN:   '✦ ¡Ganaste!',
+  OPPONENT_WIN: 'Has perdido',
+  DEALER_WIN:   'Gana el dealer',
+  BOT_WIN:      'Gana el bot',
+  PUSH:         'Empate',
+  PLAYER_FOLD:  'Te has retirado',
 };
 
 export default function StatusBanner({ status, colorMap = {}, textMap = {}, extra = null }) {

@@ -62,6 +62,14 @@ export default function OnlineGame() {
     }, 50);
   };
 
+    // ✅ FIX: Inicializar WebSocket solo cuando estamos en sala (waiting o playing)
+  const { connected, sendAction, sendChat } = useWebSocket(
+    phase === 'waiting' || phase === 'playing' ? roomId : null,
+    onMessage,
+    user.playerId,
+    gameType
+  );
+
   useEffect(() => { loadAvailableRooms(); }, [loadAvailableRooms]);
 
   useEffect(() => {
@@ -129,7 +137,7 @@ export default function OnlineGame() {
   const isMyTurn = gameType === 'domino'
     ? gameState?.currentTurnPlayerId === user.playerId || myDominoPlayer?.turn === true
     : gameType === 'threeseven'
-      ? gameState?.myTurn === true
+      ? gameState?.currentTurnUsername === user.username
       : gameState?.currentTurnUsername === user.username;
 
   const isDominoPlaying = gameType === 'domino' && gameState?.status === 'PLAYING';
@@ -141,6 +149,7 @@ export default function OnlineGame() {
   const renderGamePanel = () => {
     if (gameType === 'domino') return renderDominoPanel();
     if (gameType === 'threeseven') return renderThreeSevenPanel();
+    if (gameType === 'poker') return renderPokerPanel();
     return renderBlackjackPanel();
   };
 
@@ -335,7 +344,9 @@ export default function OnlineGame() {
       {/* Acciones */}
       {!isFinished && isMyTurn && (
         <div style={s.actions}>
-          <button style={s.btnHit}   onClick={() => handleAction('HIT')}>🃏 Pedir carta</button>
+          {gameState?.canHit !== false && (
+            <button style={s.btnHit} onClick={() => handleAction('HIT')}>🃏 Pedir carta</button>
+          )}
           <button style={s.btnStand} onClick={() => handleAction('STAND')}>✋ Plantarse</button>
         </div>
       )}
@@ -351,13 +362,21 @@ export default function OnlineGame() {
     </div>
   );
 
-  const renderBlackjackPanel = () => (
-    <div style={s.gamePanel}>
-      <div style={{
-        ...s.turnBanner,
-        borderColor: isMyTurn ? t.win : t.loss,
-        boxShadow: `0 0 16px ${isMyTurn ? t.win : t.loss}33`,
-      }}>
+  const renderBlackjackPanel = () => {
+    const effectiveStatus = (() => {
+      if (!isFinished || !gameState) return gameState?.status;
+      if (gameState?.opponentScore == null) return gameState.status;
+      if (gameState.playerScore === gameState.opponentScore) return 'PUSH';
+      return gameState.playerScore > gameState.opponentScore ? 'PLAYER_WIN' : 'OPPONENT_WIN';
+    })();
+
+    return (
+      <div style={s.gamePanel}>
+        <div style={{
+          ...s.turnBanner,
+          borderColor: isMyTurn ? t.win : t.loss,
+          boxShadow: `0 0 16px ${isMyTurn ? t.win : t.loss}33`,
+        }}>
         <span style={{ color: isMyTurn ? t.win : t.loss }}>
           {isMyTurn ? '🟢 Tu turno' : `⏳ Turno de ${gameState?.currentTurnUsername || '...'}`}
         </span>
@@ -366,17 +385,29 @@ export default function OnlineGame() {
       {isFinished && (
         <div style={{
           ...s.resultBanner,
-          borderColor: gameState.status === 'PLAYER_WIN' ? t.win : t.loss,
-          boxShadow: `0 0 24px ${gameState.status === 'PLAYER_WIN' ? t.win : t.loss}40`,
+          borderColor:
+            effectiveStatus === 'PLAYER_WIN' ? t.win :
+            effectiveStatus === 'PUSH' ? t.gold :
+            t.loss,
+          boxShadow: `0 0 24px ${effectiveStatus === 'PLAYER_WIN' ? t.win : effectiveStatus === 'PUSH' ? t.gold : t.loss}40`,
         }}>
-          <span style={{ color: gameState.status === 'PLAYER_WIN' ? t.win : t.loss, fontSize: '1.3rem', fontWeight: 700, fontFamily: t.fontDisplay }}>
-            {gameState.status === 'PLAYER_WIN' ? '✦ ¡Ganaste!' : gameState.status === 'PUSH' ? '✦ ¡Empate!' : '✦ Has perdido'}
+          <span style={{ color: effectiveStatus === 'PLAYER_WIN' ? t.win : effectiveStatus === 'PUSH' ? t.gold : t.loss, fontSize: '1.3rem', fontWeight: 700, fontFamily: t.fontDisplay }}>
+            {effectiveStatus === 'PLAYER_WIN' ? '✦ ¡Ganaste!' : effectiveStatus === 'PUSH' ? '✦ ¡Empate!' : '✦ Has perdido'}
           </span>
         </div>
       )}
 
-      {gameState?.dealerHand && (
-        <CardHand title={`Dealer — ${gameState.dealerScore} pts`} cards={gameState.dealerHand} />
+      {gameState?.opponentHand ? (
+        <CardHand
+          title={`${gameState.opponentUsername || 'Rival'} — ${gameState.opponentScore} pts`}
+          cards={gameState.opponentHand}
+        />
+      ) : (
+        <div style={s.hiddenHand}>
+          <span style={{ color: t.textSecondary, fontFamily: t.fontBody, fontSize: '0.9rem' }}>
+            🂠 Mano de {gameState?.opponentUsername || 'rival'} oculta
+          </span>
+        </div>
       )}
       {gameState?.playerHand && (
         <CardHand title={`Tu mano — ${gameState.playerScore} pts`} cards={gameState.playerHand} />
@@ -399,6 +430,88 @@ export default function OnlineGame() {
         </div>
       )}
     </div>
+  );
+  };
+
+  const renderPokerPanel = () => (
+      <div style={s.gamePanel}>
+          <div style={{
+              ...s.turnBanner,
+              borderColor: isMyTurn ? t.win : t.loss,
+              boxShadow: `0 0 16px ${isMyTurn ? t.win : t.loss}33`,
+          }}>
+              <span style={{ color: isMyTurn ? t.win : t.loss }}>
+                  {isMyTurn ? '🟢 Tu turno' : `⏳ Turno de ${gameState?.currentTurnUsername || '...'}`}
+              </span>
+          </div>
+
+          {/* Fase actual */}
+          <div style={{ textAlign: 'center', color: t.gold, fontFamily: t.fontDisplay, fontSize: '1rem' }}>
+              Fase: {gameState?.phase || 'PREFLOP'}
+          </div>
+
+          {/* Resultado */}
+          {isFinished && (
+              <div style={{
+                  ...s.resultBanner,
+                  borderColor: gameState.status === 'PLAYER_WIN' ? t.win : gameState.status === 'PUSH' ? t.gold : t.loss,
+              }}>
+                  <span style={{ color: gameState.status === 'PLAYER_WIN' ? t.win : gameState.status === 'PUSH' ? t.gold : t.loss, fontSize: '1.3rem', fontWeight: 700 }}>
+                      {gameState.status === 'PLAYER_WIN' ? '✦ ¡Ganaste!' : gameState.status === 'PUSH' ? '✦ ¡Empate!' : '✦ Has perdido'}
+                  </span>
+              </div>
+          )}
+
+          {/* Mano rival */}
+          {isFinished && gameState?.opponentHand ? (
+              <CardHand
+                  title={`${gameState.opponentUsername || 'Rival'} — ${gameState.opponentHandRank || ''}`}
+                  cards={gameState.opponentHand}
+              />
+          ) : (
+              <div style={s.hiddenHand}>
+                  <span style={{ color: t.textSecondary, fontSize: '0.9rem' }}>
+                      🂠 Mano de {gameState?.opponentUsername || 'rival'} oculta
+                  </span>
+              </div>
+          )}
+
+          {/* Cartas comunitarias */}
+          {gameState?.communityCards?.length > 0 && (
+              <CardHand
+                  title={`Mesa (${gameState.communityCards.length} cartas)`}
+                  cards={gameState.communityCards}
+              />
+          )}
+
+          {/* Mi mano */}
+          {gameState?.myHand && (
+              <CardHand
+                  title={`Tu mano${isFinished && gameState.myHandRank ? ` — ${gameState.myHandRank}` : ''}`}
+                  cards={gameState.myHand}
+              />
+          )}
+
+          {gameState?.message && <p style={s.gameMessage}>{gameState.message}</p>}
+
+          {/* Acciones */}
+          {!isFinished && isMyTurn && (
+              <div style={s.actions}>
+                  {gameState?.canCheck !== false && (
+                      <button style={s.btnHit} onClick={() => handleAction('CHECK')}>✔ Check</button>
+                  )}
+                  <button style={s.btnStand} onClick={() => handleAction('FOLD')}>✖ Fold</button>
+              </div>
+          )}
+
+          {isFinished && (
+              <div style={s.actions}>
+                  <PrimaryButton onClick={() => { setPhase('lobby'); setGameState(null); loadAvailableRooms(); }}>
+                      🔄 Volver al lobby online
+                  </PrimaryButton>
+              </div>
+          )}
+      </div>
   );
 
   return (

@@ -29,4 +29,5 @@ public class ThreeSevenOnlineStateDTO {
     private String  currentTurnUsername;
     private boolean isMyTurn;
     private String  message;
+    private boolean canHit;
 }

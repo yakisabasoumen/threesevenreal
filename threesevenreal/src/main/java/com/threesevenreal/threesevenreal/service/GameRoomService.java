@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.threesevenreal.threesevenreal.dto.BlackjackStateDTO;
 import com.threesevenreal.threesevenreal.dto.GameMessage;
 import com.threesevenreal.threesevenreal.dto.GameRoomDTO;
+import com.threesevenreal.threesevenreal.dto.PokerOnlineStateDTO;
 import com.threesevenreal.threesevenreal.dto.ThreeSevenOnlineStateDTO;
 import com.threesevenreal.threesevenreal.model.*;
 import com.threesevenreal.threesevenreal.repository.GameRoomRepository;
@@ -127,6 +128,17 @@ public class GameRoomService {
                 }
 
                 room.setGameState(objectMapper.writeValueAsString(game));
+            } else if (room.getGameType().equals("POKER")) {
+                PokerOnlineGame game = new PokerOnlineGame();
+
+                for (String pid : room.getPlayerIds()) {
+                    List<Card> hand = new ArrayList<>();
+                    hand.add(game.getDeck().dealCard());
+                    hand.add(game.getDeck().dealCard());
+                    game.getPlayerHands().put(pid, hand);
+                }
+
+                room.setGameState(objectMapper.writeValueAsString(game));
             }
 
         } catch (Exception e) {
@@ -151,6 +163,9 @@ public class GameRoomService {
             } else if (room.getGameType().equals("THREESEVEN")) {
                 ThreeSevenOnlineGame game = objectMapper.readValue(room.getGameState(), ThreeSevenOnlineGame.class);
                 broadcastThreeSevenState(room, game);
+            } else if (room.getGameType().equals("POKER")) {
+                PokerOnlineGame game = objectMapper.readValue(room.getGameState(), PokerOnlineGame.class);
+                broadcastPokerState(room, game);
             }
         } catch (Exception e) {
             throw new RuntimeException("Error enviando estado inicial: " + e.getMessage());
@@ -173,6 +188,9 @@ public class GameRoomService {
                 } else if ("THREESEVEN".equals(room.getGameType())) {
                     ThreeSevenOnlineGame game = objectMapper.readValue(room.getGameState(), ThreeSevenOnlineGame.class);
                     broadcastThreeSevenStateToPlayer(room, game, playerId);
+                } else if ("POKER".equals(room.getGameType())) {
+                    PokerOnlineGame game = objectMapper.readValue(room.getGameState(), PokerOnlineGame.class);
+                    broadcastPokerStateToPlayer(room, game, playerId);
                 }
             } catch (Exception e) {
                 System.err.println("resendStateIfPlaying error: " + e.getMessage());
@@ -209,6 +227,8 @@ public class GameRoomService {
             processBlackjackAction(room, playerId, action);
         } else if ("THREESEVEN".equals(room.getGameType())) {
             processThreeSevenAction(room, playerId, action);
+        } else if ("POKER".equals(room.getGameType())) {
+            processPokerAction(room, playerId, action);
         }
 
         GameMessage actionNotice = GameMessage.builder()
@@ -229,9 +249,12 @@ public class GameRoomService {
             ThreeSevenOnlineGame game = objectMapper.readValue(room.getGameState(), ThreeSevenOnlineGame.class);
 
             if ("HIT".equals(action)) {
+                 if (game.getPlayersWhoHit().contains(playerId)) {
+                    throw new RuntimeException("Ya pediste carta, solo puedes plantarte");
+                }
                 game.getPlayerHands().get(playerId).add(game.getDeck().dealCard());
                 evaluateAndStore(game, playerId);
-
+                game.getPlayersWhoHit().add(playerId);
             } else if ("STAND".equals(action)) {
                 game.getStandingPlayers().add(playerId);
             }
@@ -342,6 +365,7 @@ public class GameRoomService {
                 .currentTurnUsername(currentTurnUsername)
                 .isMyTurn(pid.equals(room.getCurrentTurnPlayerId()) && !finished)
                 .message(resolveThreeSevenMessage(personalStatus, currentTurnUsername, finished))
+                .canHit(!game.getPlayersWhoHit().contains(pid) && !finished)
                 .build();
 
         GameMessage msg = GameMessage.builder()
@@ -389,10 +413,6 @@ public class GameRoomService {
                             game.getPlayerScores().getOrDefault(pid, 0) > 21);
 
             if (allPlayersDone) {
-                while (game.getDealerScore() < 17) {
-                    game.getDealerHand().add(game.getDeck().dealCard());
-                    game.setDealerScore(BlackjackGame.calculateHandScore(game.getDealerHand()));
-                }
                 game.setStatus("FINISHED");
                 room.setStatus("FINISHED");
                 gameOver = true;
@@ -448,33 +468,51 @@ public class GameRoomService {
         List<Card> myHand = game.getPlayerHands().get(pid);
         int myScore = game.getPlayerScores().getOrDefault(pid, 0);
 
+        String opponentId = room.getPlayerIds().stream()
+                .filter(p -> !p.equals(pid))
+                .findFirst()
+                .orElse(null);
+
+        String opponentUsername = null;
+        int opponentScore = 0;
+        List<Card> opponentHand = null;
+        if (opponentId != null) {
+            int opponentIndex = room.getPlayerIds().indexOf(opponentId);
+            if (opponentIndex >= 0) {
+                opponentUsername = room.getPlayerUsernames().get(opponentIndex);
+            }
+            opponentScore = game.getPlayerScores().getOrDefault(opponentId, 0);
+            if (!isPlaying) {
+                opponentHand = game.getPlayerHands().get(opponentId);
+            }
+        }
+
         String personalStatus;
         if (isPlaying) {
             personalStatus = "PLAYING";
+        } else if (myScore > 21 && opponentScore > 21) {
+            personalStatus = "PUSH";
         } else if (myScore > 21) {
-            personalStatus = "DEALER_WIN";
-        } else if (game.getDealerScore() > 21 || myScore > game.getDealerScore()) {
+            personalStatus = "OPPONENT_WIN";
+        } else if (opponentScore > 21) {
             personalStatus = "PLAYER_WIN";
-        } else if (game.getDealerScore() > myScore) {
-            personalStatus = "DEALER_WIN";
+        } else if (myScore > opponentScore) {
+            personalStatus = "PLAYER_WIN";
+        } else if (opponentScore > myScore) {
+            personalStatus = "OPPONENT_WIN";
         } else {
             personalStatus = "PUSH";
         }
 
-        List<Card> visibleDealerHand = isPlaying
-                ? List.of(game.getDealerHand().get(0))
-                : game.getDealerHand();
-        int visibleDealerScore = isPlaying
-                ? game.getDealerHand().get(0).getValue()
-                : game.getDealerScore();
-
         BlackjackStateDTO dto = BlackjackStateDTO.builder()
                 .gameId(room.getId())
                 .playerHand(myHand)
-                .dealerHand(visibleDealerHand)
+                .opponentHand(opponentHand)
+                .opponentUsername(opponentUsername)
+                .opponentScore(opponentScore)
                 .playerScore(myScore)
-                .dealerScore(visibleDealerScore)
                 .status(personalStatus)
+                .isMyTurn(pid.equals(room.getCurrentTurnPlayerId()) && !isPlaying)
                 .currentTurnUsername(currentTurnUsername)
                 .message(resolveBlackjackMessage(personalStatus, currentTurnUsername))
                 .build();
@@ -491,10 +529,11 @@ public class GameRoomService {
 
     private String resolveBlackjackMessage(String status, String currentTurnUsername) {
         return switch (status) {
-            case "PLAYER_WIN" -> "¡Ganaste!";
-            case "DEALER_WIN" -> "El dealer gana.";
-            case "PUSH"       -> "¡Empate!";
-            default           -> "Turno de: " + (currentTurnUsername != null ? currentTurnUsername : "...");
+            case "PLAYER_WIN"   -> "¡Ganaste!";
+            case "OPPONENT_WIN" -> "Has perdido.";
+            case "DEALER_WIN"   -> "El dealer gana.";
+            case "PUSH"         -> "¡Empate!";
+            default             -> "Turno de: " + (currentTurnUsername != null ? currentTurnUsername : "...");
         };
     }
 
@@ -524,6 +563,250 @@ public class GameRoomService {
                         messagingTemplate.convertAndSend("/topic/room/" + room.getId(), msg);
                     }
                 });
+    }
+
+    // ──────────────────────────────────────────
+    // LÓGICA POKER ONLINE
+    // ──────────────────────────────────────────
+    private void processPokerAction(GameRoom room, String playerId, String action) {
+        try {
+            PokerOnlineGame game = objectMapper.readValue(room.getGameState(), PokerOnlineGame.class);
+            List<String> players = room.getPlayerIds();
+            String opponentId = players.stream().filter(p -> !p.equals(playerId)).findFirst().orElse(null);
+
+            if ("FOLD".equals(action)) {
+                game.getFoldedPlayers().add(playerId);
+                game.setStatus("FINISHED");
+                room.setStatus("FINISHED");
+
+                // El rival gana por fold
+                if (opponentId != null) {
+                    statsService.registerResult(opponentId, "PLAYER_WIN");
+                    statsService.registerResult(playerId, "PLAYER_LOSE");
+                }
+
+                room.setGameState(objectMapper.writeValueAsString(game));
+                room.setUpdatedAt(LocalDateTime.now());
+                gameRoomRepository.save(room);
+                broadcastPokerState(room, game);
+                return;
+            }
+
+            if ("CHECK".equals(action)) {
+                game.getCheckedInPhase().add(playerId);
+
+                boolean bothChecked = players.stream()
+                        .allMatch(pid -> game.getCheckedInPhase().contains(pid)
+                                || game.getFoldedPlayers().contains(pid));
+
+                if (bothChecked) {
+                    // Avanzar fase
+                    game.getCheckedInPhase().clear();
+                    switch (game.getPhase()) {
+                        case "PREFLOP" -> {
+                            game.getCommunityCards().add(game.getDeck().dealCard());
+                            game.getCommunityCards().add(game.getDeck().dealCard());
+                            game.getCommunityCards().add(game.getDeck().dealCard());
+                            game.setPhase("FLOP");
+                        }
+                        case "FLOP" -> {
+                            game.getCommunityCards().add(game.getDeck().dealCard());
+                            game.setPhase("TURN");
+                        }
+                        case "TURN" -> {
+                            game.getCommunityCards().add(game.getDeck().dealCard());
+                            game.setPhase("RIVER");
+                        }
+                        case "RIVER" -> {
+                            // Showdown
+                            game.setPhase("SHOWDOWN");
+                            game.setStatus("FINISHED");
+                            room.setStatus("FINISHED");
+
+                            // Registrar stats
+                            String winner = determinePokerWinner(game, players);
+                            if (winner != null && opponentId != null) {
+                                String loserId = winner.equals(playerId) ? opponentId : playerId;
+                                statsService.registerResult(winner, "PLAYER_WIN");
+                                statsService.registerResult(loserId, "PLAYER_LOSE");
+                            }
+                        }
+                    }
+                    // El turno vuelve al jugador 0 en cada nueva fase
+                    room.setCurrentTurnPlayerId(players.get(0));
+                } else {
+                    // Pasar turno al otro
+                    room.setCurrentTurnPlayerId(opponentId);
+                }
+            }
+
+            room.setGameState(objectMapper.writeValueAsString(game));
+            room.setUpdatedAt(LocalDateTime.now());
+            gameRoomRepository.save(room);
+            broadcastPokerState(room, game);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error procesando acción Poker: " + e.getMessage());
+        }
+    }
+
+    private String determinePokerWinner(PokerOnlineGame game, List<String> players) {
+        String p1 = players.get(0);
+        String p2 = players.get(1);
+        int score1 = evaluatePokerHand(game.getPlayerHands().get(p1), game.getCommunityCards()).score();
+        int score2 = evaluatePokerHand(game.getPlayerHands().get(p2), game.getCommunityCards()).score();
+        if (score1 > score2) return p1;
+        if (score2 > score1) return p2;
+        return null; // empate
+    }
+
+    private void broadcastPokerState(GameRoom room, PokerOnlineGame game) {
+        for (String pid : room.getPlayerIds()) {
+            broadcastPokerStateToPlayer(room, game, pid);
+        }
+    }
+
+    private void broadcastPokerStateToPlayer(GameRoom room, PokerOnlineGame game, String pid) {
+        List<String> players = room.getPlayerIds();
+        String opponentId = players.stream().filter(p -> !p.equals(pid)).findFirst().orElse(null);
+
+        String opponentUsername = null;
+        if (opponentId != null) {
+            int idx = players.indexOf(opponentId);
+            if (idx >= 0) opponentUsername = room.getPlayerUsernames().get(idx);
+        }
+
+        String currentTurnUsername = null;
+        if (room.getCurrentTurnPlayerId() != null) {
+            int idx = players.indexOf(room.getCurrentTurnPlayerId());
+            if (idx >= 0) currentTurnUsername = room.getPlayerUsernames().get(idx);
+        }
+
+        boolean finished = "FINISHED".equals(game.getStatus());
+        boolean folded = game.getFoldedPlayers().contains(pid);
+        boolean opponentFolded = opponentId != null && game.getFoldedPlayers().contains(opponentId);
+
+        String personalStatus = "PLAYING";
+        String myHandRank = null;
+        String opponentHandRank = null;
+        List<Card> opponentHand = null;
+
+        if (finished) {
+            if (opponentFolded) {
+                personalStatus = "PLAYER_WIN";
+            } else if (folded) {
+                personalStatus = "OPPONENT_WIN";
+            } else if (opponentId != null) {
+                // Showdown — calcular ganador
+                PokerHandResult myResult  = evaluatePokerHand(game.getPlayerHands().get(pid), game.getCommunityCards());
+                PokerHandResult oppResult = evaluatePokerHand(game.getPlayerHands().get(opponentId), game.getCommunityCards());
+                myHandRank = myResult.rank();
+                opponentHandRank = oppResult.rank();
+                opponentHand = game.getPlayerHands().get(opponentId);
+
+                if (myResult.score() > oppResult.score())       personalStatus = "PLAYER_WIN";
+                else if (oppResult.score() > myResult.score())  personalStatus = "OPPONENT_WIN";
+                else                                             personalStatus = "PUSH";
+            }
+        }
+
+        String message;
+        if (!finished) {
+            message = "Fase: " + game.getPhase() + " — Turno de: " + (currentTurnUsername != null ? currentTurnUsername : "...");
+        } else {
+            message = switch (personalStatus) {
+                case "PLAYER_WIN"   -> "¡Ganaste!";
+                case "OPPONENT_WIN" -> "Has perdido.";
+                case "PUSH"         -> "¡Empate!";
+                default -> "";
+            };
+        }
+
+        PokerOnlineStateDTO dto = PokerOnlineStateDTO.builder()
+                .gameId(room.getId())
+                .myHand(game.getPlayerHands().get(pid))
+                .opponentHand(finished ? opponentHand : null)
+                .opponentUsername(opponentUsername)
+                .communityCards(game.getCommunityCards())
+                .phase(game.getPhase())
+                .status(personalStatus)
+                .currentTurnUsername(currentTurnUsername)
+                .isMyTurn(pid.equals(room.getCurrentTurnPlayerId()) && !finished)
+                .canCheck(!game.getCheckedInPhase().contains(pid) && !finished)
+                .myHandRank(myHandRank)
+                .opponentHandRank(opponentHandRank)
+                .message(message)
+                .build();
+
+        GameMessage msg = GameMessage.builder()
+                .type("STATE_UPDATE")
+                .roomId(room.getId())
+                .payload(dto)
+                .timestamp(System.currentTimeMillis())
+                .build();
+
+        messagingTemplate.convertAndSend("/topic/room/" + room.getId() + "/" + pid, msg);
+    }
+
+    private record PokerHandResult(String rank, int score) {}
+
+    private PokerHandResult evaluatePokerHand(List<Card> holeCards, List<Card> community) {
+        List<Card> all = new ArrayList<>(holeCards);
+        all.addAll(community);
+
+        List<List<Card>> combinations = new ArrayList<>();
+        getCombinations(all, 5, 0, new ArrayList<>(), combinations);
+
+        return combinations.stream()
+                .map(this::evaluateFiveCardHand)
+                .max(Comparator.comparingInt(PokerHandResult::score))
+                .orElse(new PokerHandResult("Carta Alta", 0));
+    }
+
+    private void getCombinations(List<Card> cards, int k, int start,
+                                List<Card> current, List<List<Card>> result) {
+        if (current.size() == k) { result.add(new ArrayList<>(current)); return; }
+        for (int i = start; i < cards.size(); i++) {
+            current.add(cards.get(i));
+            getCombinations(cards, k, i + 1, current, result);
+            current.remove(current.size() - 1);
+        }
+    }
+
+    private PokerHandResult evaluateFiveCardHand(List<Card> hand) {
+        Map<String, Long> rankCount = hand.stream()
+                .collect(java.util.stream.Collectors.groupingBy(Card::getRank, java.util.stream.Collectors.counting()));
+        Map<String, Long> suitCount = hand.stream()
+                .collect(java.util.stream.Collectors.groupingBy(Card::getSuit, java.util.stream.Collectors.counting()));
+
+        boolean isFlush    = suitCount.size() == 1;
+        boolean isStraight = isPokerStraight(hand);
+        long maxCount = rankCount.values().stream().mapToLong(Long::longValue).max().orElse(0);
+        long pairs    = rankCount.values().stream().filter(v -> v == 2).count();
+
+        if (isFlush && isStraight) {
+            List<Integer> values = hand.stream().map(Card::getValue).sorted().toList();
+            if (values.get(4) == 14) return new PokerHandResult("Escalera Real", 900);
+            return new PokerHandResult("Escalera de Color", 800);
+        }
+        if (maxCount == 4) return new PokerHandResult("Poker", 700);
+        if (maxCount == 3 && pairs == 1) return new PokerHandResult("Full House", 600);
+        if (isFlush)    return new PokerHandResult("Color", 500);
+        if (isStraight) return new PokerHandResult("Escalera", 400);
+        if (maxCount == 3) return new PokerHandResult("Trío", 300);
+        if (pairs == 2) return new PokerHandResult("Doble Pareja", 200);
+        if (pairs == 1) return new PokerHandResult("Pareja", 100);
+        int high = hand.stream().mapToInt(Card::getValue).max().orElse(0);
+        return new PokerHandResult("Carta Alta (" + high + ")", high);
+    }
+
+    private boolean isPokerStraight(List<Card> hand) {
+        List<Integer> values = hand.stream().map(Card::getValue).distinct().sorted().toList();
+        if (values.size() < 5) return false;
+        for (int i = 1; i < values.size(); i++) {
+            if (values.get(i) != values.get(i - 1) + 1) return false;
+        }
+        return true;
     }
 
     // ──────────────────────────────────────────

@@ -19,5 +19,6 @@ public class ThreeSevenOnlineGame {
     private Map<String, String>     handRanks   = new HashMap<>();
     private Map<String, Integer>    handScores  = new HashMap<>();
     private Set<String>             standingPlayers = new HashSet<>();
+    private Set<String>             playersWhoHit   = new HashSet<>();  
     private String status = "PLAYING"; 
 }
