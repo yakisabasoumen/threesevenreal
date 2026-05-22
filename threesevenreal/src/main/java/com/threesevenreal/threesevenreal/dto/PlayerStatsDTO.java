@@ -16,4 +16,5 @@ public class PlayerStatsDTO {
     private double winRate;
     private int winStreak;
     private int maxWinStreak;
+    private String avatarImage;
 }

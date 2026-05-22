@@ -50,6 +50,8 @@ public class User implements UserDetails {
     @Builder.Default
     private boolean enabled = true;
 
+    private String avatarImage;
+    
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of();

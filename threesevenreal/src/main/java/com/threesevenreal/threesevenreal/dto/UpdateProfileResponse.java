@@ -12,5 +12,6 @@ import lombok.NoArgsConstructor;
 public class UpdateProfileResponse {
     private String username;
     private String avatarSymbol;
+    private String avatarImage;
     private String message;
 }

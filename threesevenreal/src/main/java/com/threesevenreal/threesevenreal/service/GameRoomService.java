@@ -7,6 +7,7 @@ import com.threesevenreal.threesevenreal.dto.GameRoomDTO;
 import com.threesevenreal.threesevenreal.dto.PokerOnlineStateDTO;
 import com.threesevenreal.threesevenreal.dto.ThreeSevenOnlineStateDTO;
 import com.threesevenreal.threesevenreal.model.*;
+import com.threesevenreal.threesevenreal.repository.GameResultRepository;
 import com.threesevenreal.threesevenreal.repository.GameRoomRepository;
 import com.threesevenreal.threesevenreal.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +22,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GameRoomService {
 
-    private final GameRoomRepository    gameRoomRepository;
-    private final UserRepository        userRepository;
+    private final GameRoomRepository gameRoomRepository;
+    private final GameResultRepository gameResultRepository;
+    private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ObjectMapper          objectMapper;
-    private final ThreeSevenService     threeSevenService;
-    private final StatsService          statsService;
+    private final ObjectMapper objectMapper;
+    private final ThreeSevenService threeSevenService;
+    private final StatsService statsService;
 
     // ──────────────────────────────────────────
     // CREAR SALA
@@ -122,7 +124,8 @@ public class GameRoomService {
 
                 for (String pid : room.getPlayerIds()) {
                     List<Card> hand = new ArrayList<>();
-                    for (int i = 0; i < 3; i++) hand.add(game.getDeck().dealCard());
+                    for (int i = 0; i < 3; i++)
+                        hand.add(game.getDeck().dealCard());
                     game.getPlayerHands().put(pid, hand);
                     evaluateAndStore(game, pid);
                 }
@@ -177,9 +180,12 @@ public class GameRoomService {
     // ──────────────────────────────────────────
     public void resendStateIfPlaying(String roomId, String playerId) {
         gameRoomRepository.findById(roomId).ifPresent(room -> {
-            if (!"PLAYING".equals(room.getStatus())) return;
-            if (room.getGameState() == null) return;
-            if (!room.getPlayerIds().contains(playerId)) return;
+            if (!"PLAYING".equals(room.getStatus()))
+                return;
+            if (room.getGameState() == null)
+                return;
+            if (!room.getPlayerIds().contains(playerId))
+                return;
 
             try {
                 if ("BLACKJACK".equals(room.getGameType())) {
@@ -249,7 +255,7 @@ public class GameRoomService {
             ThreeSevenOnlineGame game = objectMapper.readValue(room.getGameState(), ThreeSevenOnlineGame.class);
 
             if ("HIT".equals(action)) {
-                 if (game.getPlayersWhoHit().contains(playerId)) {
+                if (game.getPlayersWhoHit().contains(playerId)) {
                     throw new RuntimeException("Ya pediste carta, solo puedes plantarte");
                 }
                 game.getPlayerHands().get(playerId).add(game.getDeck().dealCard());
@@ -276,9 +282,11 @@ public class GameRoomService {
                 if (score1 > score2) {
                     statsService.registerResult(player1, "PLAYER_WIN");
                     statsService.registerResult(player2, "PLAYER_LOSE");
+                    saveGameResult(room, player1);
                 } else if (score2 > score1) {
                     statsService.registerResult(player2, "PLAYER_WIN");
                     statsService.registerResult(player1, "PLAYER_LOSE");
+                    saveGameResult(room, player2);
                 }
                 // En caso de empate, no registrar stats
             } else {
@@ -328,13 +336,15 @@ public class GameRoomService {
         String opponentUsername = null;
         if (opponentId != null) {
             int idx = players.indexOf(opponentId);
-            if (idx >= 0) opponentUsername = room.getPlayerUsernames().get(idx);
+            if (idx >= 0)
+                opponentUsername = room.getPlayerUsernames().get(idx);
         }
 
         String currentTurnUsername = null;
         if (room.getCurrentTurnPlayerId() != null) {
             int idx = players.indexOf(room.getCurrentTurnPlayerId());
-            if (idx >= 0) currentTurnUsername = room.getPlayerUsernames().get(idx);
+            if (idx >= 0)
+                currentTurnUsername = room.getPlayerUsernames().get(idx);
         }
 
         boolean finished = "FINISHED".equals(game.getStatus());
@@ -342,11 +352,14 @@ public class GameRoomService {
         // Determinar resultado personal solo si terminó
         String personalStatus = "PLAYING";
         if (finished && opponentId != null) {
-            int myScore  = game.getHandScores().getOrDefault(pid, 0);
+            int myScore = game.getHandScores().getOrDefault(pid, 0);
             int oppScore = game.getHandScores().getOrDefault(opponentId, 0);
-            if      (myScore > oppScore)  personalStatus = "PLAYER_WIN";
-            else if (oppScore > myScore)  personalStatus = "OPPONENT_WIN";
-            else                          personalStatus = "PUSH";
+            if (myScore > oppScore)
+                personalStatus = "PLAYER_WIN";
+            else if (oppScore > myScore)
+                personalStatus = "OPPONENT_WIN";
+            else
+                personalStatus = "PUSH";
         }
 
         String myUsername = room.getPlayerUsernames().get(players.indexOf(pid));
@@ -379,13 +392,52 @@ public class GameRoomService {
     }
 
     private String resolveThreeSevenMessage(String status, String turnUsername, boolean finished) {
-        if (!finished) return "Turno de: " + (turnUsername != null ? turnUsername : "...");
+        if (!finished)
+            return "Turno de: " + (turnUsername != null ? turnUsername : "...");
         return switch (status) {
-            case "PLAYER_WIN"   -> "¡Ganaste!";
+            case "PLAYER_WIN" -> "¡Ganaste!";
             case "OPPONENT_WIN" -> "Has perdido.";
-            case "PUSH"         -> "¡Empate!";
-            default             -> "";
+            case "PUSH" -> "¡Empate!";
+            default -> "";
         };
+    }
+
+    private void registerBlackjackResult(GameRoom room, BlackjackGame game) {
+        List<String> players = room.getPlayerIds();
+        if (players.size() < 2)
+            return;
+
+        String p1 = players.get(0);
+        String p2 = players.get(1);
+        int score1 = game.getPlayerScores().getOrDefault(p1, 0);
+        int score2 = game.getPlayerScores().getOrDefault(p2, 0);
+
+        boolean bust1 = score1 > 21;
+        boolean bust2 = score2 > 21;
+
+        String winnerId = null;
+        if (bust1 && bust2) {
+            // draw, no stats
+        } else if (bust1) {
+            statsService.registerResult(p1, "PLAYER_LOSE");
+            statsService.registerResult(p2, "PLAYER_WIN");
+            winnerId = p2;
+        } else if (bust2) {
+            statsService.registerResult(p2, "PLAYER_LOSE");
+            statsService.registerResult(p1, "PLAYER_WIN");
+            winnerId = p1;
+        } else if (score1 > score2) {
+            statsService.registerResult(p1, "PLAYER_WIN");
+            statsService.registerResult(p2, "PLAYER_LOSE");
+            winnerId = p1;
+        } else if (score2 > score1) {
+            statsService.registerResult(p2, "PLAYER_WIN");
+            statsService.registerResult(p1, "PLAYER_LOSE");
+            winnerId = p2;
+        }
+        // draw: winnerId stays null, saveGameResult skips it
+
+        saveGameResult(room, winnerId);
     }
 
     // ──────────────────────────────────────────
@@ -401,21 +453,23 @@ public class GameRoomService {
                 hand.add(game.getDeck().dealCard());
                 game.recalculatePlayerScore(playerId);
                 int score = game.getPlayerScores().get(playerId);
-                if (score > 21) game.getStandingPlayers().add(playerId);
+                if (score > 21)
+                    game.getStandingPlayers().add(playerId);
 
             } else if (action.equals("STAND")) {
                 game.getStandingPlayers().add(playerId);
             }
 
             boolean allPlayersDone = room.getPlayerIds().stream()
-                    .allMatch(pid ->
-                            game.getStandingPlayers().contains(pid) ||
+                    .allMatch(pid -> game.getStandingPlayers().contains(pid) ||
                             game.getPlayerScores().getOrDefault(pid, 0) > 21);
 
             if (allPlayersDone) {
                 game.setStatus("FINISHED");
                 room.setStatus("FINISHED");
                 gameOver = true;
+                registerBlackjackResult(room, game);
+
             } else {
                 List<String> players = room.getPlayerIds();
                 int currentIdx = players.indexOf(playerId);
@@ -423,8 +477,7 @@ public class GameRoomService {
 
                 for (int i = 1; i < players.size(); i++) {
                     String candidate = players.get((currentIdx + i) % players.size());
-                    boolean candidateDone =
-                            game.getStandingPlayers().contains(candidate) ||
+                    boolean candidateDone = game.getStandingPlayers().contains(candidate) ||
                             game.getPlayerScores().getOrDefault(candidate, 0) > 21;
                     if (!candidateDone) {
                         room.setCurrentTurnPlayerId(candidate);
@@ -437,6 +490,7 @@ public class GameRoomService {
                     game.setStatus("FINISHED");
                     room.setStatus("FINISHED");
                     gameOver = true;
+                    registerBlackjackResult(room, game);
                 }
             }
 
@@ -461,7 +515,8 @@ public class GameRoomService {
         String currentTurnUsername = null;
         if (room.getCurrentTurnPlayerId() != null) {
             int idx = room.getPlayerIds().indexOf(room.getCurrentTurnPlayerId());
-            if (idx >= 0) currentTurnUsername = room.getPlayerUsernames().get(idx);
+            if (idx >= 0)
+                currentTurnUsername = room.getPlayerUsernames().get(idx);
         }
 
         boolean isPlaying = "PLAYING".equals(game.getStatus());
@@ -529,11 +584,11 @@ public class GameRoomService {
 
     private String resolveBlackjackMessage(String status, String currentTurnUsername) {
         return switch (status) {
-            case "PLAYER_WIN"   -> "¡Ganaste!";
+            case "PLAYER_WIN" -> "¡Ganaste!";
             case "OPPONENT_WIN" -> "Has perdido.";
-            case "DEALER_WIN"   -> "El dealer gana.";
-            case "PUSH"         -> "¡Empate!";
-            default             -> "Turno de: " + (currentTurnUsername != null ? currentTurnUsername : "...");
+            case "DEALER_WIN" -> "El dealer gana.";
+            case "PUSH" -> "¡Empate!";
+            default -> "Turno de: " + (currentTurnUsername != null ? currentTurnUsername : "...");
         };
     }
 
@@ -583,6 +638,7 @@ public class GameRoomService {
                 if (opponentId != null) {
                     statsService.registerResult(opponentId, "PLAYER_WIN");
                     statsService.registerResult(playerId, "PLAYER_LOSE");
+                    saveGameResult(room, opponentId);
                 }
 
                 room.setGameState(objectMapper.writeValueAsString(game));
@@ -629,6 +685,7 @@ public class GameRoomService {
                                 String loserId = winner.equals(playerId) ? opponentId : playerId;
                                 statsService.registerResult(winner, "PLAYER_WIN");
                                 statsService.registerResult(loserId, "PLAYER_LOSE");
+                                saveGameResult(room, winner);
                             }
                         }
                     }
@@ -655,8 +712,10 @@ public class GameRoomService {
         String p2 = players.get(1);
         int score1 = evaluatePokerHand(game.getPlayerHands().get(p1), game.getCommunityCards()).score();
         int score2 = evaluatePokerHand(game.getPlayerHands().get(p2), game.getCommunityCards()).score();
-        if (score1 > score2) return p1;
-        if (score2 > score1) return p2;
+        if (score1 > score2)
+            return p1;
+        if (score2 > score1)
+            return p2;
         return null; // empate
     }
 
@@ -673,13 +732,15 @@ public class GameRoomService {
         String opponentUsername = null;
         if (opponentId != null) {
             int idx = players.indexOf(opponentId);
-            if (idx >= 0) opponentUsername = room.getPlayerUsernames().get(idx);
+            if (idx >= 0)
+                opponentUsername = room.getPlayerUsernames().get(idx);
         }
 
         String currentTurnUsername = null;
         if (room.getCurrentTurnPlayerId() != null) {
             int idx = players.indexOf(room.getCurrentTurnPlayerId());
-            if (idx >= 0) currentTurnUsername = room.getPlayerUsernames().get(idx);
+            if (idx >= 0)
+                currentTurnUsername = room.getPlayerUsernames().get(idx);
         }
 
         boolean finished = "FINISHED".equals(game.getStatus());
@@ -698,26 +759,31 @@ public class GameRoomService {
                 personalStatus = "OPPONENT_WIN";
             } else if (opponentId != null) {
                 // Showdown — calcular ganador
-                PokerHandResult myResult  = evaluatePokerHand(game.getPlayerHands().get(pid), game.getCommunityCards());
-                PokerHandResult oppResult = evaluatePokerHand(game.getPlayerHands().get(opponentId), game.getCommunityCards());
+                PokerHandResult myResult = evaluatePokerHand(game.getPlayerHands().get(pid), game.getCommunityCards());
+                PokerHandResult oppResult = evaluatePokerHand(game.getPlayerHands().get(opponentId),
+                        game.getCommunityCards());
                 myHandRank = myResult.rank();
                 opponentHandRank = oppResult.rank();
                 opponentHand = game.getPlayerHands().get(opponentId);
 
-                if (myResult.score() > oppResult.score())       personalStatus = "PLAYER_WIN";
-                else if (oppResult.score() > myResult.score())  personalStatus = "OPPONENT_WIN";
-                else                                             personalStatus = "PUSH";
+                if (myResult.score() > oppResult.score())
+                    personalStatus = "PLAYER_WIN";
+                else if (oppResult.score() > myResult.score())
+                    personalStatus = "OPPONENT_WIN";
+                else
+                    personalStatus = "PUSH";
             }
         }
 
         String message;
         if (!finished) {
-            message = "Fase: " + game.getPhase() + " — Turno de: " + (currentTurnUsername != null ? currentTurnUsername : "...");
+            message = "Fase: " + game.getPhase() + " — Turno de: "
+                    + (currentTurnUsername != null ? currentTurnUsername : "...");
         } else {
             message = switch (personalStatus) {
-                case "PLAYER_WIN"   -> "¡Ganaste!";
+                case "PLAYER_WIN" -> "¡Ganaste!";
                 case "OPPONENT_WIN" -> "Has perdido.";
-                case "PUSH"         -> "¡Empate!";
+                case "PUSH" -> "¡Empate!";
                 default -> "";
             };
         }
@@ -748,7 +814,8 @@ public class GameRoomService {
         messagingTemplate.convertAndSend("/topic/room/" + room.getId() + "/" + pid, msg);
     }
 
-    private record PokerHandResult(String rank, int score) {}
+    private record PokerHandResult(String rank, int score) {
+    }
 
     private PokerHandResult evaluatePokerHand(List<Card> holeCards, List<Card> community) {
         List<Card> all = new ArrayList<>(holeCards);
@@ -764,8 +831,11 @@ public class GameRoomService {
     }
 
     private void getCombinations(List<Card> cards, int k, int start,
-                                List<Card> current, List<List<Card>> result) {
-        if (current.size() == k) { result.add(new ArrayList<>(current)); return; }
+            List<Card> current, List<List<Card>> result) {
+        if (current.size() == k) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
         for (int i = start; i < cards.size(); i++) {
             current.add(cards.get(i));
             getCombinations(cards, k, i + 1, current, result);
@@ -779,32 +849,42 @@ public class GameRoomService {
         Map<String, Long> suitCount = hand.stream()
                 .collect(java.util.stream.Collectors.groupingBy(Card::getSuit, java.util.stream.Collectors.counting()));
 
-        boolean isFlush    = suitCount.size() == 1;
+        boolean isFlush = suitCount.size() == 1;
         boolean isStraight = isPokerStraight(hand);
         long maxCount = rankCount.values().stream().mapToLong(Long::longValue).max().orElse(0);
-        long pairs    = rankCount.values().stream().filter(v -> v == 2).count();
+        long pairs = rankCount.values().stream().filter(v -> v == 2).count();
 
         if (isFlush && isStraight) {
             List<Integer> values = hand.stream().map(Card::getValue).sorted().toList();
-            if (values.get(4) == 14) return new PokerHandResult("Escalera Real", 900);
+            if (values.get(4) == 14)
+                return new PokerHandResult("Escalera Real", 900);
             return new PokerHandResult("Escalera de Color", 800);
         }
-        if (maxCount == 4) return new PokerHandResult("Poker", 700);
-        if (maxCount == 3 && pairs == 1) return new PokerHandResult("Full House", 600);
-        if (isFlush)    return new PokerHandResult("Color", 500);
-        if (isStraight) return new PokerHandResult("Escalera", 400);
-        if (maxCount == 3) return new PokerHandResult("Trío", 300);
-        if (pairs == 2) return new PokerHandResult("Doble Pareja", 200);
-        if (pairs == 1) return new PokerHandResult("Pareja", 100);
+        if (maxCount == 4)
+            return new PokerHandResult("Poker", 700);
+        if (maxCount == 3 && pairs == 1)
+            return new PokerHandResult("Full House", 600);
+        if (isFlush)
+            return new PokerHandResult("Color", 500);
+        if (isStraight)
+            return new PokerHandResult("Escalera", 400);
+        if (maxCount == 3)
+            return new PokerHandResult("Trío", 300);
+        if (pairs == 2)
+            return new PokerHandResult("Doble Pareja", 200);
+        if (pairs == 1)
+            return new PokerHandResult("Pareja", 100);
         int high = hand.stream().mapToInt(Card::getValue).max().orElse(0);
         return new PokerHandResult("Carta Alta (" + high + ")", high);
     }
 
     private boolean isPokerStraight(List<Card> hand) {
         List<Integer> values = hand.stream().map(Card::getValue).distinct().sorted().toList();
-        if (values.size() < 5) return false;
+        if (values.size() < 5)
+            return false;
         for (int i = 1; i < values.size(); i++) {
-            if (values.get(i) != values.get(i - 1) + 1) return false;
+            if (values.get(i) != values.get(i - 1) + 1)
+                return false;
         }
         return true;
     }
@@ -830,5 +910,24 @@ public class GameRoomService {
                 .currentTurnUsername(currentTurnUsername)
                 .message(message)
                 .build();
+    }
+
+    private void saveGameResult(GameRoom room, String winnerId) {
+        if (winnerId == null)
+            return; // draw, don't record
+        int winnerIdx = room.getPlayerIds().indexOf(winnerId);
+        String winnerUsername = winnerIdx >= 0 ? room.getPlayerUsernames().get(winnerIdx) : null;
+
+        GameResult result = GameResult.builder()
+                .roomId(room.getId())
+                .gameType(room.getGameType())
+                .winnerId(winnerId)
+                .winnerUsername(winnerUsername)
+                .playerIds(new ArrayList<>(room.getPlayerIds()))
+                .playerUsernames(new ArrayList<>(room.getPlayerUsernames()))
+                .playedAt(LocalDateTime.now())
+                .build();
+
+        gameResultRepository.save(result);
     }
 }
