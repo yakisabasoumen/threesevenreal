@@ -1,68 +1,356 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
+import PrimaryButton from '../components/ui/PrimaryButton';
+import LobbyChat from '../components/ui/LobbyChat';
+import { useLobbyStats } from "../hooks/useLobbyStats";
+import { useAppPresence } from "../hooks/useAppPresence";
+import { t } from '../styles/theme';
 
 const games = [
-  { id: 'blackjack', name: 'Blackjack', emoji: '🃏', desc: 'Clásico contra la máquina. Llega a 21 sin pasarte.' },
-  { id: 'threeseven', name: 'Tres y Siete', emoji: '🎴', desc: 'Juego de cartas español. La mejor mano gana.' },
-  { id: 'poker', name: 'Poker Texas Hold\'em', emoji: '♠️', desc: 'Texas Hold\'em simplificado contra la máquina.' },
+  { id: 'blackjack',  name: 'Blackjack',     suit: '♣', desc: 'Llega a 21 sin pasarte. Clásico contra la máquina.', badge: 'Clásico' },
+  { id: 'threeseven', name: 'Tres y Siete',  suit: '♦', desc: 'Juego de cartas español. La mejor mano gana.',       badge: 'Español' },
+  { id: 'poker',      name: "Texas Hold'em", suit: '♠', desc: 'Poker simplificado contra la máquina.',              badge: 'Popular' },
+  { id: 'domino',     name: 'Dominó',        suit: '☰', desc: 'Dominó real contra otro jugador en línea.',            badge: 'Multijugador', onlineOnly: true },
 ];
+
+const HEADER_H = '58px';
 
 export default function Lobby() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const { stats } = useLobbyStats();        
+  const { onlineUsers } = useAppPresence(); 
+
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.title}>ThreeSevenReal</h1>
-        <div style={styles.headerRight}>
-          <span style={styles.username}>👤 {user.username}</span>
-          <button style={styles.btnOutline} onClick={() => navigate('/ranking')}>🏆 Ranking</button>
-          <button style={styles.btnOutline} onClick={() => navigate('/profile')}>📊 Perfil</button>
-          <button style={styles.btnRed} onClick={logout}>Salir</button>
+    <div style={s.root}>
+      {/* Orbs */}
+      <div style={s.orbTR} />
+      <div style={s.orbBL} />
+
+      {/* HEADER */}
+      <header style={s.header}>
+        <div style={s.headerInner}>
+          <div style={s.logoGroup}>
+            <span style={s.logoSuit}>♠</span>
+            <span style={s.logoText}>ThreeSevenReal</span>
+          </div>
+          <nav style={s.nav}>
+            <span style={s.username}>👤 {user?.username}</span>
+            <button style={s.btnNav} onClick={() => navigate('/friends')}>Amigos</button>
+            <button style={s.btnNav} onClick={() => navigate('/ranking')}>Ranking</button>
+            <button style={s.btnNav} onClick={() => navigate('/profile')}>Perfil</button>
+            <button style={s.btnRed} onClick={logout}>Salir</button>
+          </nav>
         </div>
       </header>
 
-      <main style={styles.main}>
-        <h2 style={styles.subtitle}>Elige un juego</h2>
-        <div style={styles.grid}>
-          {games.map(game => (
-            <div key={game.id} style={styles.card}>
-              <div style={styles.emoji}>{game.emoji}</div>
-              <h3 style={styles.cardTitle}>{game.name}</h3>
-              <p style={styles.cardDesc}>{game.desc}</p>
-              <div style={styles.cardButtons}>
-                <button style={styles.btnPrimary} onClick={() => navigate(`/${game.id}`)}>
-                  Un jugador
-                </button>
-                <button style={styles.btnSecondary} onClick={() => navigate(`/${game.id}/online`)}>
-                  Online 🌐
-                </button>
-              </div>
+      {/* BODY */}
+      <div style={s.body}>
+
+        {/* IZQUIERDA */}
+        <div style={s.leftCol}>
+
+          {/* Hero */}
+          <div style={s.hero}>
+            <p style={s.heroEyebrow}>Mesa de juegos</p>
+            <h2 style={s.heroTitle}>Elige tu partida</h2>
+            <div style={s.heroLine} />
+            <p style={s.heroSub}>
+              Juega en solitario o desafía a otros jugadores en tiempo real.
+              Tres juegos, un solo objetivo: ganar.
+            </p>
+          </div>
+
+          {/* Stats rápidas */}
+          <div style={s.statsRow}>
+            <div style={s.statCard}>
+              <span style={s.statIcon}>◉</span>
+              <span style={s.statValue}>{onlineUsers.length}</span>
+              <span style={s.statLabel}>Jugadores activos</span>
             </div>
-          ))}
+
+            <div style={s.statCard}>
+              <span style={s.statIcon}>♠</span>
+              <span style={s.statValue}>{stats.gamesToday}</span>
+              <span style={s.statLabel}>Partidas hoy</span>
+            </div>
+
+            <div style={s.statCard}>
+              <span style={s.statIcon}>★</span>
+              <span style={s.statValue}>{stats.winStreak}</span>
+              <span style={s.statLabel}>Racha actual</span>
+            </div>
+
+            <div style={s.statCard}>
+              <span style={s.statIcon}>✔</span>
+              <span style={s.statValue}>{stats.maxWinStreak}</span>
+              <span style={s.statLabel}>Racha máxima</span>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={s.sectionDivider}>
+            <div style={s.sectionLine} />
+            <span style={s.sectionLabel}>JUEGOS DISPONIBLES</span>
+            <div style={s.sectionLine} />
+          </div>
+
+          {/* Cards */}
+          <div style={s.gameList}>
+            {games.map((game, idx) => (
+              <div
+                key={game.id}
+                style={{ ...s.card, animationDelay: `${idx * 0.08}s` }}
+                className="game-card"
+              >
+                <div style={s.suitBox}>
+                  <span className="suit-char" style={s.suitChar}>{game.suit}</span>
+                </div>
+
+                <div style={s.cardInfo}>
+                  <div style={s.cardTitleRow}>
+                    <h3 style={s.cardTitle}>{game.name}</h3>
+                    <span style={s.badge}>{game.badge}</span>
+                  </div>
+                  <p style={s.cardDesc}>{game.desc}</p>
+                </div>
+
+                <div style={s.cardActions}>
+                  {!game.onlineOnly && (
+                    <PrimaryButton style={s.btnPrimary} onClick={() => navigate(`/${game.id}`)}>
+                      Un jugador
+                    </PrimaryButton>
+                  )}
+                  <button style={s.btnSecondary} onClick={() => navigate(`/${game.id}/online`)}>
+                    Online
+                  </button>
+                </div>
+
+                <div style={s.cardAccent} />
+              </div>
+            ))}
+          </div>
+
+          {/* Info bar */}
+          <div style={s.infoBar}>
+            <span style={s.infoIcon}>ℹ</span>
+            <span style={s.infoText}>
+              El modo <strong style={{ color: t.gold }}>Online</strong> requiere que haya otro jugador disponible en el lobby.
+              El chat de la derecha te ayuda a coordinar partidas.
+            </span>
+          </div>
+
         </div>
-      </main>
+
+        {/* DERECHA */}
+        <aside style={s.rightCol}>
+          <LobbyChat />
+        </aside>
+
+      </div>
+
+      {/* Animaciones */}
+      <style>{`
+        * { box-sizing: border-box; }
+
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .game-card {
+          animation: fadeUp 0.35s ease both;
+          transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+        }
+        .game-card:hover {
+          transform: translateY(-3px);
+          border-color: ${t.borderHover} !important;
+          box-shadow: 0 18px 50px rgba(0,0,0,0.7), ${t.shadowGold} !important;
+        }
+        .game-card:hover .suit-char {
+          opacity: 0.55 !important;
+          transform: scale(1.1);
+        }
+        .suit-char { transition: opacity 0.22s, transform 0.22s; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${t.border}; border-radius: 4px; }
+      `}</style>
     </div>
   );
 }
 
-const styles = {
-  container: { minHeight: '100vh', background: '#1a1a2e', color: '#fff' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', background: '#16213e', borderBottom: '1px solid #0f3460' },
-  title: { color: '#4fc3f7', margin: 0 },
-  headerRight: { display: 'flex', alignItems: 'center', gap: '0.75rem' },
-  username: { color: '#aaa' },
-  main: { padding: '2rem', maxWidth: '900px', margin: '0 auto' },
-  subtitle: { textAlign: 'center', color: '#4fc3f7', marginBottom: '2rem' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' },
-  card: { background: '#16213e', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', border: '1px solid #0f3460' },
-  emoji: { fontSize: '3rem', marginBottom: '0.5rem' },
-  cardTitle: { color: '#4fc3f7', marginBottom: '0.5rem' },
-  cardDesc: { color: '#aaa', fontSize: '0.9rem', marginBottom: '1.5rem' },
-  cardButtons: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  btnPrimary: { padding: '0.6rem', borderRadius: '8px', border: 'none', background: '#4fc3f7', color: '#000', fontWeight: 'bold', cursor: 'pointer' },
-  btnSecondary: { padding: '0.6rem', borderRadius: '8px', border: '1px solid #4fc3f7', background: 'transparent', color: '#4fc3f7', cursor: 'pointer' },
-  btnOutline: { padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #4fc3f7', background: 'transparent', color: '#4fc3f7', cursor: 'pointer' },
-  btnRed: { padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: '#e74c3c', color: '#fff', cursor: 'pointer' },
+const s = {
+  root: {
+    minHeight: '100vh',
+    background: t.bg0,
+    color: t.textPrimary,
+    fontFamily: t.fontBody,
+    position: 'relative',
+  },
+
+  orbTR: {
+    position: 'fixed',
+    width: '800px', height: '800px', borderRadius: '50%',
+    background: `radial-gradient(circle, ${t.goldGlow} 0%, transparent 60%)`,
+    top: '-280px', right: '-200px',
+    pointerEvents: 'none', zIndex: 0,
+  },
+  orbBL: {
+    position: 'fixed',
+    width: '600px', height: '600px', borderRadius: '50%',
+    background: `radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)`,
+    bottom: '-180px', left: '-150px',
+    pointerEvents: 'none', zIndex: 0,
+  },
+
+  /* Header fijo */
+  header: {
+    height: HEADER_H,
+    background: t.bg2,
+    borderBottom: `1px solid ${t.border}`,
+    position: 'fixed',
+    top: 0, left: 0, right: 0,
+    zIndex: 200,
+    boxShadow: '0 2px 20px rgba(0,0,0,0.6)',
+  },
+  headerInner: {
+    maxWidth: '1380px', margin: '0 auto', padding: '0 2rem',
+    height: '100%',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  },
+  logoGroup: { display: 'flex', alignItems: 'center', gap: '10px' },
+  logoSuit:  { color: t.gold, fontFamily: t.fontDisplay, fontSize: '1.2rem' },
+  logoText:  { color: t.gold, fontFamily: t.fontDisplay, fontSize: '1.25rem', fontWeight: 700, letterSpacing: '0.04em' },
+  nav: { display: 'flex', alignItems: 'center', gap: '0.65rem' },
+  username: { color: t.textSecondary, fontSize: '0.8rem', marginRight: '0.3rem' },
+  btnNav: {
+    padding: '0.38rem 0.9rem', borderRadius: '6px',
+    border: `1px solid ${t.border}`, background: 'transparent',
+    color: t.gold, cursor: 'pointer', fontSize: '0.8rem',
+    fontFamily: t.fontBody, letterSpacing: '0.04em',
+  },
+  btnRed: {
+    padding: '0.38rem 0.9rem', borderRadius: '6px',
+    border: '1px solid rgba(248,113,113,0.25)', background: 'transparent',
+    color: t.loss, cursor: 'pointer', fontSize: '0.8rem', fontFamily: t.fontBody,
+  },
+
+  /* Body */
+  body: {
+    maxWidth: '1380px',
+    margin: `${HEADER_H} auto 0`,
+    padding: '2rem 2rem 2rem',
+    display: 'grid',
+    gridTemplateColumns: '1fr 360px',
+    gap: '2rem',
+    alignItems: 'start',
+    position: 'relative',
+    zIndex: 1,
+  },
+
+  /* Columna izquierda */
+  leftCol: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
+
+  hero: { display: 'flex', flexDirection: 'column', gap: '0.65rem' },
+  heroEyebrow: {
+    color: t.textSecondary, fontSize: '0.7rem',
+    letterSpacing: '0.22em', textTransform: 'uppercase',
+    margin: 0,
+  },
+  heroTitle: {
+    color: t.textPrimary, fontFamily: t.fontDisplay,
+    fontSize: '2.4rem', fontWeight: 700,
+    margin: 0, letterSpacing: '0.02em', lineHeight: 1.1,
+  },
+  heroLine: {
+    width: '52px', height: '2px',
+    background: `linear-gradient(90deg, ${t.gold}, transparent)`,
+  },
+  heroSub: {
+    color: t.textSecondary, fontSize: '0.88rem',
+    lineHeight: 1.65, margin: 0, maxWidth: '520px',
+  },
+
+  /* Stats */
+  statsRow: {
+    display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem',
+  },
+  statCard: {
+    background: t.bg2, border: `1px solid ${t.border}`,
+    borderRadius: '12px', padding: '1rem 1.1rem',
+    display: 'flex', flexDirection: 'column', gap: '4px',
+  },
+  statIcon:  { color: t.goldDark, fontSize: '0.85rem', lineHeight: 1 },
+  statValue: { color: t.textPrimary, fontFamily: t.fontDisplay, fontSize: '1.6rem', fontWeight: 700, lineHeight: 1 },
+  statLabel: { color: t.textMuted, fontSize: '0.7rem', letterSpacing: '0.04em' },
+
+  /* Sección divider */
+  sectionDivider: { display: 'flex', alignItems: 'center', gap: '1rem' },
+  sectionLine:    { flex: 1, height: '1px', background: t.border },
+  sectionLabel:   { color: t.textMuted, fontSize: '0.65rem', letterSpacing: '0.18em', whiteSpace: 'nowrap' },
+
+  /* Game cards */
+  gameList: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
+  card: {
+    background: t.bg2, borderRadius: '14px',
+    border: `1px solid ${t.border}`,
+    padding: '1.2rem 1.5rem',
+    display: 'grid', gridTemplateColumns: '52px 1fr auto',
+    alignItems: 'center', gap: '1.25rem',
+    position: 'relative', overflow: 'hidden',
+    boxShadow: t.shadowCard,
+  },
+  suitBox: {
+    width: '48px', height: '48px',
+    background: 'rgba(201,168,76,0.05)',
+    border: `1px solid ${t.border}`, borderRadius: '10px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  suitChar: { fontSize: '1.5rem', color: t.gold, opacity: 0.3, fontFamily: t.fontDisplay, display: 'block' },
+  cardInfo:     { display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0 },
+  cardTitleRow: { display: 'flex', alignItems: 'center', gap: '8px' },
+  cardTitle: {
+    color: t.textPrimary, fontFamily: t.fontDisplay,
+    fontSize: '1.1rem', fontWeight: 700, margin: 0, letterSpacing: '0.02em',
+  },
+  badge: {
+    fontSize: '0.6rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+    color: t.goldDark, background: 'rgba(201,168,76,0.08)',
+    border: `1px solid rgba(201,168,76,0.2)`, borderRadius: '20px',
+    padding: '2px 7px', fontFamily: t.fontBody, flexShrink: 0,
+  },
+  cardDesc: { color: t.textSecondary, fontSize: '0.82rem', lineHeight: 1.5, margin: 0 },
+  cardActions:  { display: 'flex', gap: '0.55rem', flexShrink: 0 },
+  btnPrimary:   { padding: '0.55rem 1.1rem', fontSize: '0.78rem', letterSpacing: '0.06em' },
+  btnSecondary: {
+    padding: '0.55rem 1.1rem', borderRadius: '8px',
+    border: `1px solid ${t.border}`, background: 'transparent',
+    color: t.gold, fontWeight: 500, fontSize: '0.78rem',
+    cursor: 'pointer', fontFamily: t.fontBody,
+    letterSpacing: '0.06em', textTransform: 'uppercase',
+  },
+  cardAccent: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px',
+    background: `linear-gradient(90deg, transparent, ${t.goldDark}, transparent)`,
+  },
+
+  infoBar: {
+    display: 'flex', alignItems: 'flex-start', gap: '10px',
+    background: 'rgba(201,168,76,0.04)', border: `1px solid ${t.border}`,
+    borderRadius: '10px', padding: '0.75rem 1rem',
+  },
+  infoIcon: { color: t.goldDark, fontSize: '0.85rem', flexShrink: 0, marginTop: '1px' },
+  infoText: { color: t.textMuted, fontSize: '0.78rem', lineHeight: 1.55 },
+
+  /* Columna derecha: sticky debajo del header fijo */
+  rightCol: {
+    position: 'sticky',
+    top: `calc(${HEADER_H} + 2rem)`,
+    height: `calc(100vh - ${HEADER_H} - 4rem)`,
+    display: 'flex',
+    flexDirection: 'column',
+  },
 };

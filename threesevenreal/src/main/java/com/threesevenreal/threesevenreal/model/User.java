@@ -32,9 +32,18 @@ public class User implements UserDetails {
 
     private String password;
 
+    @Builder.Default
+    private String avatarSymbol = "♠";
+
     private int wins;
     private int losses;
     private int gamesPlayed;
+
+    @Builder.Default
+    private int winStreak = 0;
+
+    @Builder.Default
+    private int maxWinStreak = 0;
 
     private LocalDateTime createdAt;
 

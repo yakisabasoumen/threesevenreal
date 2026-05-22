@@ -9,13 +9,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Card {
 
-    private String suit;   // HEARTS, DIAMONDS, CLUBS, SPADES
-    private String rank;   // 2-10, J, Q, K, A
+    private String suit;   
+    private String rank;  
 
     public int getValue() {
         return switch (rank) {
-            case "J", "Q", "K" -> 10;
-            case "A" -> 11;
+            case "J" -> 11;
+            case "Q" -> 12;
+            case "K" -> 13;
+            case "A" -> 1;
             default -> Integer.parseInt(rank);
         };
     }

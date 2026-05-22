@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -25,13 +26,12 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.List;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -42,6 +42,7 @@ public class SecurityConfig {
     private final UserRepository userRepository;
 
     @Bean
+    @Primary
     public UserDetailsService userDetailsService() {
         return username -> userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
@@ -82,11 +83,18 @@ public class SecurityConfig {
                 }
 
                 final String jwt = authHeader.substring(7);
-                final String username = jwtService.extractUsername(jwt);
+
+                final String username;
+                try {
+                    username = jwtService.extractUsername(jwt);
+                } catch (Exception e) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    var userDetails = userDetailsService().loadUserByUsername(username);
-                    if (jwtService.isTokenValid(jwt, userDetails)) {
+                    var userDetails = userRepository.findByUsername(username).orElse(null);
+                    if (userDetails != null && jwtService.isTokenValid(jwt, userDetails)) {
                         var authToken = new org.springframework.security.authentication
                                 .UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
@@ -94,6 +102,7 @@ public class SecurityConfig {
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                     }
                 }
+
                 filterChain.doFilter(request, response);
             }
         };
@@ -104,9 +113,9 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/ws/**").permitAll()
+                        .requestMatchers("/api/chat/history").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -122,7 +131,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

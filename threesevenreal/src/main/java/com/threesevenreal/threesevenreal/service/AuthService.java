@@ -50,6 +50,7 @@ public class AuthService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .playerId(user.getId())
+                .avatarSymbol(user.getAvatarSymbol())
                 .build();
     }
 
@@ -72,6 +73,7 @@ public class AuthService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .playerId(user.getId())
+                .avatarSymbol(user.getAvatarSymbol())
                 .build();
     }
 }
