@@ -192,8 +192,3 @@ Extraído de `pom.xml`, `package.json` y archivos de configuración.
 
 - Notas de despliegue:
 	- Por defecto el backend escucha en el puerto `8080`. El frontend (Vite) corre en `http://localhost:5173` durante el desarrollo (CORS configurado para ese origen).
-	- Para producción, compilar el frontend (`npm run build`) y servir los ficheros estáticos desde un servidor (o integrar en el empaquetado del backend). No existe un Dockerfile ni scripts de CI/CD en el repositorio — [completar manualmente] si se desea añadir despliegue automatizado.
-
----
-
-Si falta algún detalle o quieres que incluya ejemplos de curl/requests o un diagrama ASCII de navegación más detallado, dime y lo añado.
