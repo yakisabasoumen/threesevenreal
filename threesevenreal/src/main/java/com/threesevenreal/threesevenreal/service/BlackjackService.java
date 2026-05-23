@@ -66,7 +66,6 @@ public class BlackjackService {
         }
 
         blackjackGameRepository.save(game);
-        statsService.registerResult(game.getPlayerId(), "DEALER_WIN");
         return buildState(game, "Carta repartida.");
     }
 

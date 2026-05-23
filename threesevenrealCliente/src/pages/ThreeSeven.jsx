@@ -21,7 +21,7 @@ export default function ThreeSeven() {
   };
 
   return (
-    <div style={s.container}>
+    <div className="page-threeseven" style={s.container}>
       <GameHeader title="♦ Tres y Siete" />
       <main style={s.main}>
         {!game ? (
@@ -38,7 +38,7 @@ export default function ThreeSeven() {
           <div style={s.gameLayout}>
             <StatusBanner status={game.status} />
 
-            <div style={s.grid}>
+            <div className="game-grid" style={s.grid}>
               <CardHand title="Tu mano" cards={game.playerHand} footer={game.playerHandRank} />
               <CardHand title="Bot"     cards={game.botHand}    footer={game.botHandRank} />
             </div>

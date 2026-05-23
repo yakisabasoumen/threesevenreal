@@ -40,7 +40,7 @@ export default function Poker() {
   const phaseIndex = game ? PHASES.indexOf(game.phase) : -1;
 
   return (
-    <div style={s.container}>
+    <div className="page-poker" style={s.container}>
       <GameHeader title="♠ Poker Texas Hold'em" />
       <main style={s.main}>
         {!game ? (
@@ -76,7 +76,7 @@ export default function Poker() {
               <CardHand title="Mesa" cards={game.communityCards} />
             )}
 
-            <div style={s.grid}>
+            <div className="game-grid" style={s.grid}>
               <CardHand title="Tu mano" cards={game.playerHand || []} footer={isFinished ? game.playerHandRank : null} />
               <CardHand title="Bot"     cards={isFinished && game.botHand ? game.botHand : []} footer={isFinished ? game.botHandRank : '🂠 🂠 Ocultas'} />
             </div>

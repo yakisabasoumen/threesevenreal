@@ -6,8 +6,10 @@ import com.threesevenreal.threesevenreal.dto.DominoStateDTO;
 import com.threesevenreal.threesevenreal.model.DominoGameState;
 import com.threesevenreal.threesevenreal.model.DominoRoom;
 import com.threesevenreal.threesevenreal.model.DominoTile;
+import com.threesevenreal.threesevenreal.model.GameResult;
 import com.threesevenreal.threesevenreal.model.User;
 import com.threesevenreal.threesevenreal.repository.DominoRoomRepository;
+import com.threesevenreal.threesevenreal.repository.GameResultRepository;
 import com.threesevenreal.threesevenreal.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -23,6 +25,7 @@ public class DominoGameService {
 
     private final DominoRoomRepository dominoRoomRepository;
     private final UserRepository userRepository;
+    private final GameResultRepository gameResultRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
     private final StatsService statsService;
@@ -381,7 +384,17 @@ public class DominoGameService {
         boolean matchFinished = maybeFinishMatch(room, state);
 
         if (matchFinished) {
+            // Find the winning player and persist the game result for rankings
+            String winningTeamStr = state.getWinner();
+            int winningTeam = "team1".equals(winningTeamStr) ? 1 : 2;
+            DominoGameState.DominoPlayerState winningPlayer = state.getPlayers().stream()
+                    .filter(player -> player.getTeam() == winningTeam)
+                    .findFirst().orElse(null);
+
             persistRoom(room, state);
+            if (winningPlayer != null) {
+                saveGameResult(room, state, winningPlayer.getPlayerId());
+            }
             broadcastState(room, finalState, "GAME_END", "Ronda terminada por tranca");
         } else {
             persistRoom(room, state);
@@ -442,6 +455,7 @@ public class DominoGameService {
                     .filter(player -> player.getTeam() == (winnerTeam.equals("team1") ? 1 : 2))
                     .findFirst().orElseThrow();
             registerMatchResults(state, winner.getTeam());
+            saveGameResult(room, state, winner.getPlayerId());
             room.setStatus("FINISHED");
             return true;
         }
@@ -486,6 +500,26 @@ public class DominoGameService {
         room.setGameState(serializeState(state));
         room.setUpdatedAt(LocalDateTime.now());
         dominoRoomRepository.save(room);
+    }
+
+    private void saveGameResult(DominoRoom room, DominoGameState state, String winnerId) {
+        GameResult result = GameResult.builder()
+                .roomId(room.getId())
+                .gameType("DOMINO")
+                .winnerId(winnerId)
+                .winnerUsername(state.getPlayers().stream()
+                        .filter(player -> player.getPlayerId().equals(winnerId))
+                        .map(DominoGameState.DominoPlayerState::getUsername)
+                        .findFirst().orElse(null))
+                .playerIds(state.getPlayers().stream()
+                        .map(DominoGameState.DominoPlayerState::getPlayerId)
+                        .collect(Collectors.toList()))
+                .playerUsernames(state.getPlayers().stream()
+                        .map(DominoGameState.DominoPlayerState::getUsername)
+                        .collect(Collectors.toList()))
+                .playedAt(LocalDateTime.now())
+                .build();
+        gameResultRepository.save(result);
     }
 
     private void broadcastRooms() {

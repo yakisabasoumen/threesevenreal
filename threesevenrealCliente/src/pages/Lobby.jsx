@@ -23,7 +23,7 @@ export default function Lobby() {
   const { onlineUsers } = useAppPresence(); 
 
   return (
-    <div style={s.root}>
+    <div className="page-lobby" style={s.root}>
       {/* Orbs */}
       <div style={s.orbTR} />
       <div style={s.orbBL} />
@@ -33,9 +33,9 @@ export default function Lobby() {
         <div style={s.headerInner}>
           <div style={s.logoGroup}>
             <span style={s.logoSuit}>♠</span>
-            <span style={s.logoText}>ThreeSevenReal</span>
+            <span className="logo-text" style={s.logoText}>ThreeSevenReal</span>
           </div>
-          <nav style={s.nav}>
+          <nav className="nav-inner" style={s.nav}>
             <span style={s.username}>👤 {user?.username}</span>
             <button style={s.btnNav} onClick={() => navigate('/friends')}>Amigos</button>
             <button style={s.btnNav} onClick={() => navigate('/ranking')}>Ranking</button>
@@ -46,13 +46,13 @@ export default function Lobby() {
       </header>
 
       {/* BODY */}
-      <div style={s.body}>
+      <div className="page-body" style={s.body}>
 
         {/* IZQUIERDA */}
         <div style={s.leftCol}>
 
           {/* Hero */}
-          <div style={s.hero}>
+          <div className="hero" style={s.hero}>
             <p style={s.heroEyebrow}>Mesa de juegos</p>
             <h2 style={s.heroTitle}>Elige tu partida</h2>
             <div style={s.heroLine} />
@@ -63,7 +63,7 @@ export default function Lobby() {
           </div>
 
           {/* Stats rápidas */}
-          <div style={s.statsRow}>
+          <div className="statsRow" style={s.statsRow}>
             <div style={s.statCard}>
               <span style={s.statIcon}>◉</span>
               <span style={s.statValue}>{onlineUsers.length}</span>
@@ -113,10 +113,10 @@ export default function Lobby() {
                     <h3 style={s.cardTitle}>{game.name}</h3>
                     <span style={s.badge}>{game.badge}</span>
                   </div>
-                  <p style={s.cardDesc}>{game.desc}</p>
+                  <p className="card-desc" style={s.cardDesc}>{game.desc}</p>
                 </div>
 
-                <div style={s.cardActions}>
+                <div className="card-actions" style={s.cardActions}>
                   {!game.onlineOnly && (
                     <PrimaryButton style={s.btnPrimary} onClick={() => navigate(`/${game.id}`)}>
                       Un jugador
@@ -144,7 +144,7 @@ export default function Lobby() {
         </div>
 
         {/* DERECHA */}
-        <aside style={s.rightCol}>
+        <aside className="page-sidebar" style={s.rightCol}>
           <LobbyChat />
         </aside>
 
@@ -177,6 +177,28 @@ export default function Lobby() {
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${t.border}; border-radius: 4px; }
+
+        @media (max-width: 1024px) {
+          .page-lobby header { padding: 0.6rem 1rem !important; }
+          .page-lobby header .headerInner { padding: 0 1rem !important; }
+        }
+
+        @media (max-width: 768px) {
+          .page-lobby header { position: sticky !important; top: 0; left: 0; right: 0; }
+          .page-lobby header .headerInner { padding: 0 0.85rem !important; }
+          .page-lobby .page-body { margin-top: 0 !important; }
+          .page-lobby .page-body { grid-template-columns: 1fr !important; }
+          .page-lobby .page-sidebar { position: static !important; height: auto !important; width: 100% !important; }
+          .page-lobby .nav-inner { width: 100%; justify-content: center; gap: 0.5rem !important; }
+          .page-lobby .nav-inner button { padding: 0.28rem 0.65rem !important; font-size: 0.72rem !important; flex: 1 1 120px !important; }
+          .page-lobby .logo-text { font-size: 1rem !important; }
+          .page-lobby .logoGroup { width: 100%; justify-content: space-between; }
+          .page-lobby .username { width: 100%; text-align: center; order: -1; }
+          .page-lobby .game-card { grid-template-columns: 52px minmax(0, 1fr) !important; }
+          .page-lobby .card-actions { width: 100%; justify-content: flex-start; gap: 0.55rem !important; }
+          .page-lobby .card-actions button { flex: 1 1 140px !important; min-width: 140px !important; }
+          .page-lobby .card-desc { font-size: 0.92rem !important; line-height: 1.6 !important; }
+        }
       `}</style>
     </div>
   );
@@ -208,7 +230,7 @@ const s = {
 
   /* Header fijo */
   header: {
-    height: HEADER_H,
+    minHeight: HEADER_H,
     background: t.bg2,
     borderBottom: `1px solid ${t.border}`,
     position: 'fixed',
@@ -218,24 +240,25 @@ const s = {
   },
   headerInner: {
     maxWidth: '1380px', margin: '0 auto', padding: '0 2rem',
-    height: '100%',
+    minHeight: HEADER_H,
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    flexWrap: 'wrap', gap: '0.75rem',
   },
-  logoGroup: { display: 'flex', alignItems: 'center', gap: '10px' },
+  logoGroup: { display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 },
   logoSuit:  { color: t.gold, fontFamily: t.fontDisplay, fontSize: '1.2rem' },
   logoText:  { color: t.gold, fontFamily: t.fontDisplay, fontSize: '1.25rem', fontWeight: 700, letterSpacing: '0.04em' },
-  nav: { display: 'flex', alignItems: 'center', gap: '0.65rem' },
-  username: { color: t.textSecondary, fontSize: '0.8rem', marginRight: '0.3rem' },
+  nav: { display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', justifyContent: 'flex-end' },
+  username: { color: t.textSecondary, fontSize: '0.8rem', marginRight: '0.3rem', whiteSpace: 'nowrap' },
   btnNav: {
     padding: '0.38rem 0.9rem', borderRadius: '6px',
     border: `1px solid ${t.border}`, background: 'transparent',
     color: t.gold, cursor: 'pointer', fontSize: '0.8rem',
-    fontFamily: t.fontBody, letterSpacing: '0.04em',
+    fontFamily: t.fontBody, letterSpacing: '0.04em', whiteSpace: 'nowrap',
   },
   btnRed: {
     padding: '0.38rem 0.9rem', borderRadius: '6px',
     border: '1px solid rgba(248,113,113,0.25)', background: 'transparent',
-    color: t.loss, cursor: 'pointer', fontSize: '0.8rem', fontFamily: t.fontBody,
+    color: t.loss, cursor: 'pointer', fontSize: '0.8rem', fontFamily: t.fontBody, whiteSpace: 'nowrap',
   },
 
   /* Body */
@@ -298,8 +321,8 @@ const s = {
     background: t.bg2, borderRadius: '14px',
     border: `1px solid ${t.border}`,
     padding: '1.2rem 1.5rem',
-    display: 'grid', gridTemplateColumns: '52px 1fr auto',
-    alignItems: 'center', gap: '1.25rem',
+    display: 'grid', gridTemplateColumns: '52px minmax(0, 1fr) auto',
+    alignItems: 'flex-start', gap: '1.25rem',
     position: 'relative', overflow: 'hidden',
     boxShadow: t.shadowCard,
   },
@@ -323,7 +346,7 @@ const s = {
     padding: '2px 7px', fontFamily: t.fontBody, flexShrink: 0,
   },
   cardDesc: { color: t.textSecondary, fontSize: '0.82rem', lineHeight: 1.5, margin: 0 },
-  cardActions:  { display: 'flex', gap: '0.55rem', flexShrink: 0 },
+  cardActions:  { display: 'flex', gap: '0.55rem', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' },
   btnPrimary:   { padding: '0.55rem 1.1rem', fontSize: '0.78rem', letterSpacing: '0.06em' },
   btnSecondary: {
     padding: '0.55rem 1.1rem', borderRadius: '8px',

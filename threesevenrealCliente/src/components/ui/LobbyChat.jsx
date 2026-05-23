@@ -38,7 +38,7 @@ export default function LobbyChat() {
   const nearLimit = input.length > 170;
 
   return (
-    <div style={s.wrapper}>
+    <div className="lobby-chat" style={s.wrapper}>
 
       {/* ── HEADER ── */}
       <div style={s.header} onClick={() => setIsOpen((o) => !o)}>
@@ -68,7 +68,7 @@ export default function LobbyChat() {
       {isOpen && (
         <>
           {/* ── MENSAJES ── */}
-          <div style={s.messages}>
+          <div className="messages" style={s.messages}>
             <div style={s.systemMsg}>
               <span style={s.diamond}>♦</span>
               Bienvenido al lobby de ThreeSevenReal
@@ -111,10 +111,10 @@ export default function LobbyChat() {
           </div>
 
           {/* ── FOOTER ── */}
-          <div style={s.footer}>
-            <div style={s.footerDivider} />
+          <div className="footer" style={s.footer}>
+            <div className="footerDivider" style={s.footerDivider} />
 
-            <div style={s.inputRow}>
+            <div className="inputRow" style={s.inputRow}>
               <input
                 ref={inputRef}
                 style={{ ...s.input, ...(cooldown > 0 ? s.inputDisabled : {}) }}

@@ -366,6 +366,9 @@ export default function OnlineGame() {
     const effectiveStatus = (() => {
       if (!isFinished || !gameState) return gameState?.status;
       if (gameState?.opponentScore == null) return gameState.status;
+      if (gameState.playerScore > 21 && gameState.opponentScore > 21) return 'PUSH';
+      if (gameState.playerScore > 21) return 'OPPONENT_WIN';
+      if (gameState.opponentScore > 21) return 'PLAYER_WIN';
       if (gameState.playerScore === gameState.opponentScore) return 'PUSH';
       return gameState.playerScore > gameState.opponentScore ? 'PLAYER_WIN' : 'OPPONENT_WIN';
     })();
@@ -515,7 +518,7 @@ export default function OnlineGame() {
   );
 
   return (
-    <div style={s.container}>
+    <div className="page-online-game" style={s.container}>
       <GameHeader title={`${GAME_LABELS[gameType]} Online`} />
 
       <main style={s.main}>
@@ -576,7 +579,7 @@ export default function OnlineGame() {
         )}
 
         {phase === 'playing' && (
-          <div style={s.gameArea}>
+          <div className="game-area" style={s.gameArea}>
             {renderGamePanel()}
 
             {/* ── CHAT ── */}
@@ -604,7 +607,7 @@ export default function OnlineGame() {
                   </div>
                 ))}
               </div>
-              <div style={s.chatInputRow}>
+              <div className="chatInputRow" style={s.chatInputRow}>
                 <input
                   style={s.chatInput}
                   value={chatInput}
@@ -644,7 +647,7 @@ const s = {
   waitCode: { color: t.textSecondary, fontSize: '1.1rem', margin: '1rem 0', fontFamily: t.fontBody },
   hint: { color: t.textMuted, fontSize: '0.9rem', fontFamily: t.fontBody },
 
-  gameArea: { display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem' },
+  gameArea: { display: 'grid', gridTemplateColumns: '1fr var(--game-right, 300px)', gap: '1.5rem' },
   gamePanel: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   turnBanner: { textAlign: 'center', padding: '0.75rem', borderRadius: '8px', border: '1px solid', background: 'rgba(0,0,0,0.3)', fontWeight: '700', fontFamily: t.fontBody, backdropFilter: 'blur(8px)' },
   resultBanner: { textAlign: 'center', padding: '1rem', borderRadius: '8px', border: '1px solid', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' },

@@ -172,10 +172,10 @@ export default function Profile() {
   const shownImage = previewImage || displayUser.avatarImage;
 
   return (
-    <div style={s.container}>
+    <div className="page-profile" style={s.container}>
       <GameHeader title="Perfil" />
       <main style={s.main}>
-        <div style={s.layout}>
+        <div className="profile-layout" style={s.layout}>
 
           {/* ── COLUMNA IZQUIERDA ─────────────────────────────── */}
           <div style={s.leftCol}>
@@ -214,7 +214,7 @@ export default function Profile() {
             </div>
 
             {/* Stats grid */}
-            <div style={s.statsGrid}>
+            <div className="profile-stats-grid" style={s.statsGrid}>
               {[
                 { label: 'Partidas',     value: stats?.gamesPlayed  ?? '—', color: t.gold },
                 { label: 'Victorias',    value: stats?.wins         ?? '—', color: t.win  },
@@ -248,7 +248,7 @@ export default function Profile() {
             {isOwnProfile ? (
               <>
                 {/* Tabs */}
-                <div style={s.tabRow}>
+                <div className="profile-tab-row" style={s.tabRow}>
                   {TABS.map(tab => (
                     <button
                       key={tab}
@@ -269,7 +269,7 @@ export default function Profile() {
                 <div style={s.tabPanel}>
 
                   {activeTab === 'username' && (
-                    <div style={s.formGroup}>
+                    <div className="profile-form-group" style={s.formGroup}>
                       <p style={s.fieldHint}>Actual: <strong style={{ color: t.gold }}>{user.username}</strong></p>
                       <AuthInput
                         placeholder="Nuevo nombre de usuario"
@@ -299,7 +299,7 @@ export default function Profile() {
                   {activeTab === 'avatar' && (
                     <div style={s.formGroup}>
                       <p style={s.fieldHint}>Elige tu símbolo de carta:</p>
-                      <div style={s.symbolGrid}>
+                      <div className="profile-symbol-grid" style={s.symbolGrid}>
                         {SYMBOLS.map(sym => (
                           <button
                             key={sym}
@@ -331,6 +331,7 @@ export default function Profile() {
 
                       {/* Drop zone */}
                       <div
+                        className="profile-drop-zone"
                         style={{
                           ...s.dropZone,
                           borderColor: dragOver ? t.gold : shownImage ? t.border : t.border,
@@ -427,7 +428,7 @@ const s = {
   container: { minHeight: '100vh', background: t.bg0, color: t.textPrimary },
   main:      { maxWidth: '900px', margin: '0 auto', padding: '2.5rem 1.5rem' },
 
-  layout:  { display: 'grid', gridTemplateColumns: '280px 1fr', gap: '1.5rem', alignItems: 'start' },
+  layout:  { display: 'grid', gridTemplateColumns: 'var(--profile-left, 280px) 1fr', gap: '1.5rem', alignItems: 'start' },
   leftCol: { display: 'flex', flexDirection: 'column', gap: '1rem' },
 
   heroCard: {

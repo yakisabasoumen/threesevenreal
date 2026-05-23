@@ -5,17 +5,29 @@ export default function GameHeader({ title, backTo = '/lobby', right = null }) {
   const navigate = useNavigate();
 
   return (
-    <header style={s.header}>
-      <div style={s.headerInner}>
-        <button style={s.btnBack} onClick={() => navigate(backTo)}
-          onMouseEnter={e => Object.assign(e.target.style, s.btnBackHover)}
-          onMouseLeave={e => Object.assign(e.target.style, s.btnBack)}>
-          ← Volver
-        </button>
-        <h1 style={s.title}>{title}</h1>
-        <div style={s.right}>{right}</div>
-      </div>
-    </header>
+    <>
+      <header className="game-header" style={s.header}>
+        <div style={s.headerInner}>
+          <button style={s.btnBack} onClick={() => navigate(backTo)}
+            onMouseEnter={e => Object.assign(e.target.style, s.btnBackHover)}
+            onMouseLeave={e => Object.assign(e.target.style, s.btnBack)}>
+            ← Volver
+          </button>
+          <h1 style={s.title}>{title}</h1>
+          <div style={s.right}>{right}</div>
+        </div>
+      </header>
+      <style>{`
+        @media (max-width: 768px) {
+          .game-header .headerInner {
+            padding: 0.75rem 1rem !important;
+          }
+          .game-header h1 {
+            font-size: 1rem !important;
+          }
+        }
+      `}</style>
+    </>
   );
 }
 
